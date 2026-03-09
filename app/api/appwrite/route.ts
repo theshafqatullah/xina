@@ -87,10 +87,10 @@ export async function POST(req: Request) {
         return ok(await db.updateCollection({
           databaseId: p.databaseId,
           collectionId: p.collectionId,
-          name: p.name,
-          permissions: p.permissions,
-          documentSecurity: p.documentSecurity,
-          enabled: p.enabled,
+          ...(typeof p.name !== "undefined" ? { name: p.name } : {}),
+          ...(typeof p.permissions !== "undefined" ? { permissions: p.permissions } : {}),
+          ...(typeof p.documentSecurity !== "undefined" ? { documentSecurity: p.documentSecurity } : {}),
+          ...(typeof p.enabled !== "undefined" ? { enabled: p.enabled } : {}),
         }));
       case "deleteCollection":
         return ok(await db.deleteCollection(p.databaseId, p.collectionId));

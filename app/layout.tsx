@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, IBM_Plex_Sans, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -31,7 +32,7 @@ export default function RootLayout({
       <body
         className={`${ibmPlexSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
   );

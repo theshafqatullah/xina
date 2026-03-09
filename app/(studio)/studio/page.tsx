@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast, Toaster } from "sonner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Database as DatabaseIcon,
   Table2,
@@ -45,12 +46,31 @@ import {
 /* ─── Types ─── */
 type AppwriteConfig = { endpoint: string; projectId: string; apiKey: string };
 type DatabaseT = { $id: string; name: string };
-type Collection = { $id: string; name: string };
-type Attribute = { key: string; type: string; required?: boolean; size?: number; relatedCollectionId?: string; elements?: string[]; min?: number; max?: number; xdefault?: any };
+type Collection = { $id: string; name: string; permissions?: string[]; $permissions?: string[] };
+type Attribute = {
+  key: string;
+  type: string;
+  required?: boolean;
+  size?: number;
+  twoWay?: boolean;
+  two_way?: boolean;
+  twoWayKey?: string;
+  two_way_key?: string;
+  relationType?: string;
+  relation_type?: string;
+  relatedCollectionId?: string;
+  relatedCollection?: string | { $id?: string; id?: string; key?: string };
+  related_collection_id?: string;
+  related_collection?: string;
+  elements?: string[];
+  min?: number;
+  max?: number;
+  xdefault?: any;
+};
 type DocumentT = { $id: string; [key: string]: any };
 type IndexDef = { key: string; type: string; attributes: string[]; orders?: string[] };
 type CanvasNode = { id: string; x: number; y: number; label: string; dbId: string };
-type Rel = { from: string; to: string };
+type Rel = { id: string; from: string; to: string; fromAttrKey: string; toAttrKey?: string };
 type ThemeMode = "light" | "dark";
 
 type ModalState =
@@ -61,6 +81,7 @@ type ModalState =
   | { kind: "createDoc" }
   | { kind: "editDoc"; docId: string; json: string }
   | { kind: "createIndex" }
+  | { kind: "permissionRule" }
   | { kind: "typesPreview"; colId: string }
   | { kind: "confirm"; title: string; message: string; onConfirm: () => void };
 
@@ -71,6 +92,137 @@ type LanguageOpt = {
 };
 
 type LoadOpts = { silent?: boolean };
+
+type PermissionAction = "read" | "create" | "update" | "delete";
+type PermissionSubject = "any" | "guests" | "users" | "user" | "team" | "teamRole" | "member" | "label";
+type PermissionGrant = {
+  id: string;
+  subject: PermissionSubject;
+  value: string;
+  teamRole: string;
+  actions: PermissionAction[];
+};
+
+const PERMISSION_ACTIONS: PermissionAction[] = ["read", "create", "update", "delete"];
+const PERMISSION_SUBJECTS: Array<{ value: PermissionSubject; label: string }> = [
+  { value: "any", label: "Anyone" },
+  { value: "users", label: "Authenticated Users" },
+  { value: "guests", label: "Guests" },
+  { value: "user", label: "Specific User" },
+  { value: "team", label: "Team" },
+  { value: "teamRole", label: "Team Role" },
+  { value: "member", label: "Membership" },
+  { value: "label", label: "Label" },
+];
+
+function makePermissionGrant(overrides?: Partial<PermissionGrant>): PermissionGrant {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    subject: "any",
+    value: "",
+    teamRole: "",
+    actions: ["read"],
+    ...overrides,
+  };
+}
+
+function permissionToEntry(permission: string): Omit<PermissionGrant, "id" | "actions"> & { actions: PermissionAction[] } | null {
+  const m = permission.match(/^([a-z]+)\("([^"]+)"\)$/i);
+  if (!m) return null;
+
+  const actionRaw = m[1];
+  const role = m[2];
+
+  // Normalize Appwrite alias `write` into explicit CRUD actions.
+  const actions: PermissionAction[] = actionRaw === "write"
+    ? ["create", "update", "delete"]
+    : PERMISSION_ACTIONS.includes(actionRaw as PermissionAction)
+      ? [actionRaw as PermissionAction]
+      : [];
+  if (!actions.length) return null;
+
+  if (role === "any") return { actions, subject: "any", value: "", teamRole: "" };
+  if (role === "users") return { actions, subject: "users", value: "", teamRole: "" };
+  if (role === "guests") return { actions, subject: "guests", value: "", teamRole: "" };
+  if (role.startsWith("user:")) return { actions, subject: "user", value: role.slice(5), teamRole: "" };
+  if (role.startsWith("member:")) return { actions, subject: "member", value: role.slice(7), teamRole: "" };
+  if (role.startsWith("label:")) return { actions, subject: "label", value: role.slice(6), teamRole: "" };
+  if (role.startsWith("team:")) {
+    const payload = role.slice(5);
+    const slash = payload.indexOf("/");
+    if (slash > -1) {
+      return {
+        actions,
+        subject: "teamRole",
+        value: payload.slice(0, slash),
+        teamRole: payload.slice(slash + 1),
+      };
+    }
+    return { actions, subject: "team", value: payload, teamRole: "" };
+  }
+
+  return null;
+}
+
+function roleKey(subject: PermissionSubject, value: string, teamRole: string) {
+  return `${subject}::${value.trim()}::${teamRole.trim()}`;
+}
+
+function parsePermissionsToGrants(permissions: string[]): PermissionGrant[] {
+  const grouped = new Map<string, PermissionGrant>();
+
+  for (const permission of permissions) {
+    const entry = permissionToEntry(permission);
+    if (!entry) continue;
+    const key = roleKey(entry.subject, entry.value, entry.teamRole);
+    const existing = grouped.get(key);
+
+    if (!existing) {
+      grouped.set(
+        key,
+        makePermissionGrant({
+          subject: entry.subject,
+          value: entry.value,
+          teamRole: entry.teamRole,
+          actions: [...entry.actions],
+        })
+      );
+      continue;
+    }
+
+    for (const action of entry.actions) {
+      if (!existing.actions.includes(action)) existing.actions.push(action);
+    }
+  }
+
+  return Array.from(grouped.values());
+}
+
+function grantToPermission(action: PermissionAction, grant: PermissionGrant): string | null {
+  const v = grant.value.trim();
+  const r = grant.teamRole.trim();
+
+  if (grant.subject === "any") return `${action}("any")`;
+  if (grant.subject === "users") return `${action}("users")`;
+  if (grant.subject === "guests") return `${action}("guests")`;
+  if (grant.subject === "user") return v ? `${action}("user:${v}")` : null;
+  if (grant.subject === "member") return v ? `${action}("member:${v}")` : null;
+  if (grant.subject === "label") return v ? `${action}("label:${v}")` : null;
+  if (grant.subject === "team") return v ? `${action}("team:${v}")` : null;
+  if (grant.subject === "teamRole") return v && r ? `${action}("team:${v}/${r}")` : null;
+  return null;
+}
+
+function grantsToPermissions(grants: PermissionGrant[]): string[] {
+  const permissions: string[] = [];
+  for (const grant of grants) {
+    for (const action of grant.actions) {
+      const p = grantToPermission(action, grant);
+      if (p) permissions.push(p);
+    }
+  }
+  return permissions;
+}
 
 const TYPE_LANGS: LanguageOpt[] = [
   { id: "typescript", label: "TypeScript", ext: "ts" },
@@ -182,6 +334,91 @@ function parseCreateDefault(attrType: AttrType, raw: string): unknown {
 
   // Appwrite expects datetime defaults as ISO 8601 strings.
   return v;
+}
+
+function relationshipTargetId(attr: Attribute): string | null {
+  const raw = attr as Record<string, unknown>;
+  const directCandidates = [
+    attr.relatedCollectionId,
+    typeof attr.relatedCollection === "string" ? attr.relatedCollection : undefined,
+    typeof attr.related_collection_id === "string" ? attr.related_collection_id : undefined,
+    typeof attr.related_collection === "string" ? attr.related_collection : undefined,
+    typeof raw.relatedCollectionID === "string" ? (raw.relatedCollectionID as string) : undefined,
+  ];
+
+  for (const candidate of directCandidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  }
+
+  const relatedObj = typeof attr.relatedCollection === "object" && attr.relatedCollection
+    ? attr.relatedCollection
+    : null;
+  const nestedCandidates = relatedObj
+    ? [relatedObj.$id, relatedObj.id, relatedObj.key]
+    : [];
+
+  for (const candidate of nestedCandidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+  }
+
+  return null;
+}
+
+function relationshipIsTwoWay(attr: Attribute): boolean {
+  const raw = attr as Record<string, unknown>;
+  const v = raw.twoWay ?? raw.two_way;
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") return v.toLowerCase() === "true";
+  return false;
+}
+
+function relationshipTwoWayKey(attr: Attribute): string | null {
+  const raw = attr as Record<string, unknown>;
+  const key = raw.twoWayKey ?? raw.two_way_key;
+  return typeof key === "string" && key.trim() ? key.trim() : null;
+}
+
+function relationshipMirrorId(from: string, to: string, key: string, twoWayKey: string): string {
+  const a = `${from}.${key}`;
+  const b = `${to}.${twoWayKey}`;
+  return [a, b].sort().join("↔");
+}
+
+function relationRowCenterY(nodeY: number, attrs: Attribute[], wantedKey: string): number | null {
+  const idx = attrs.findIndex((a) => a.type === "relationship" && a.key === wantedKey);
+  if (idx < 0) return null;
+  return nodeY + NODE_HEADER + (idx * ATTR_ROW) + ATTR_ROW / 2;
+}
+
+function extractRelationshipEdges(all: Record<string, Attribute[]>): Rel[] {
+  const edges: Rel[] = [];
+  const seen = new Set<string>();
+  const seenMirror = new Set<string>();
+
+  for (const [from, attrs] of Object.entries(all)) {
+    for (const attr of attrs) {
+      if (attr.type !== "relationship") continue;
+      const to = relationshipTargetId(attr);
+      if (!to) continue;
+
+      // Stable per-attribute edge identity.
+      const edgeId = `${from}→${to}→${attr.key}`;
+      if (seen.has(edgeId)) continue;
+
+      // Deduplicate only mirrored sides of a declared two-way relationship.
+      const twoWayKey = relationshipTwoWayKey(attr);
+      if (relationshipIsTwoWay(attr) && twoWayKey) {
+        const mirrorId = relationshipMirrorId(from, to, attr.key, twoWayKey);
+        if (seenMirror.has(mirrorId)) continue;
+        seenMirror.add(mirrorId);
+      }
+
+      seen.add(edgeId);
+      edges.push({ id: edgeId, from, to, fromAttrKey: attr.key, toAttrKey: twoWayKey ?? undefined });
+    }
+  }
+
+  return edges;
 }
 
 function mapType(attrType: string, langId: string) {
@@ -387,7 +624,7 @@ ${body || "    // no custom attributes yet"}
 }
 
 /* ─── Layout constants ─── */
-const NODE_W = 260;
+const NODE_W = 290;
 const NODE_HEADER = 44;
 const ATTR_ROW = 32;
 const GRID = 20;
@@ -398,6 +635,19 @@ const nodeH = (n: number) => NODE_HEADER + Math.max(1, n) * ATTR_ROW + 8;
 
 function filled(v: unknown): v is string { return typeof v === "string" && v.trim().length > 0; }
 function cfgReady(c: AppwriteConfig) { return filled(c.endpoint) && filled(c.projectId) && filled(c.apiKey); }
+
+function normalizeCollection(raw: any): Collection {
+  return {
+    $id: raw?.$id,
+    name: raw?.name,
+    permissions: Array.isArray(raw?.permissions)
+      ? raw.permissions
+      : Array.isArray(raw?.$permissions)
+        ? raw.$permissions
+        : [],
+    $permissions: Array.isArray(raw?.$permissions) ? raw.$permissions : undefined,
+  };
+}
 
 const envCfg: AppwriteConfig = {
   endpoint: process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "",
@@ -424,19 +674,20 @@ export default function StudioPage() {
   const [selCol, setSelCol] = useState<Collection | null>(null);
   const [selAttr, setSelAttr] = useState<Attribute | null>(null);
   const [selDoc, setSelDoc] = useState<DocumentT | null>(null);
-  const [tab, setTab] = useState<"schema" | "docs" | "indexes">("schema");
+  const [tab, setTab] = useState<"schema" | "permissions" | "indexes">("schema");
 
   const [nodes, setNodes] = useState<Record<string, CanvasNode>>({});
-  const [rels, setRels] = useState<Rel[]>([]);
   const [drag, setDrag] = useState<{ id: string; ox: number; oy: number } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const toolbeltRef = useRef<HTMLDivElement>(null);
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panning, setPanning] = useState<{ sx: number; sy: number; px: number; py: number } | null>(null);
 
   const [editName, setEditName] = useState("");
+  const [permissionGrants, setPermissionGrants] = useState<PermissionGrant[]>([]);
+  const [permissionEditingId, setPermissionEditingId] = useState<string | null>(null);
+  const [permissionDraft, setPermissionDraft] = useState<PermissionGrant>(makePermissionGrant());
   const [editReq, setEditReq] = useState(false);
   const [editSize, setEditSize] = useState<number | undefined>();
   const [editDef, setEditDef] = useState("");
@@ -448,7 +699,6 @@ export default function StudioPage() {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const activeDbIdRef = useRef<string | null>(null);
   const [theme, setTheme] = useState<ThemeMode>("dark");
-  const [hoverTool, setHoverTool] = useState<{ label: string; x: number } | null>(null);
 
   /* ─── Persist config ─── */
   const saveCfg = (c: AppwriteConfig) => {
@@ -574,13 +824,13 @@ export default function StudioPage() {
         return [];
       }
 
-      const list: Collection[] = d?.collections ?? [];
+      const list: Collection[] = (d?.collections ?? []).map((c: any) => normalizeCollection(c));
       setCollections(list);
       setSelCol((prev) => {
         if (!prev) {
           return null;
         }
-        return list.some((c) => c.$id === prev.$id) ? prev : null;
+        return list.find((c) => c.$id === prev.$id) ?? null;
       });
 
       setNodes((prev) => {
@@ -614,13 +864,6 @@ export default function StudioPage() {
       const list: Attribute[] = d?.attributes ?? [];
       setAttributes(list);
       setAllAttrs(prev => ({ ...prev, [colId]: list }));
-      const detected = list
-        .filter(a => a.type === "relationship" && a.relatedCollectionId)
-        .map(a => ({ from: colId, to: a.relatedCollectionId! }));
-      setRels(prev => {
-        const existing = prev.filter(r => r.from !== colId);
-        return [...existing, ...detected];
-      });
       return list;
     } catch (e: any) { toast.error(e.message); }
     finally { if (!silent) setBusy(false); }
@@ -648,18 +891,14 @@ export default function StudioPage() {
 
   const loadAllAttributes = useCallback(async (dbId: string, cols: Collection[]) => {
     const result: Record<string, Attribute[]> = {};
-    const detectedRels: Rel[] = [];
     await Promise.all(cols.map(async (col) => {
       try {
         const d = await api("listAttributes", { databaseId: dbId, collectionId: col.$id });
         const list: Attribute[] = d?.attributes ?? [];
         result[col.$id] = list;
-        list.filter(a => a.type === "relationship" && a.relatedCollectionId)
-          .forEach(a => detectedRels.push({ from: col.$id, to: a.relatedCollectionId! }));
       } catch { result[col.$id] = []; }
     }));
     setAllAttrs(result);
-    setRels(detectedRels);
   }, [api]);
 
   const refreshSchemaSilent = useCallback(async () => {
@@ -678,7 +917,6 @@ export default function StudioPage() {
 
     if (selectedColId) {
       await loadAttributes(activeDbId, selectedColId, { silent: true });
-      if (tab === "docs") await loadDocuments(activeDbId, selectedColId, { silent: true });
       if (tab === "indexes") await loadIndexes(activeDbId, selectedColId, { silent: true });
     }
   }, [
@@ -686,7 +924,6 @@ export default function StudioPage() {
     loadCollections,
     loadAllAttributes,
     loadAttributes,
-    loadDocuments,
     loadIndexes,
     selDb,
     selCol,
@@ -710,7 +947,6 @@ export default function StudioPage() {
   useEffect(() => {
     if (selDb && selCol) {
       loadAttributes(selDb.$id, selCol.$id, { silent: true });
-      if (tab === "docs") loadDocuments(selDb.$id, selCol.$id, { silent: true });
       if (tab === "indexes") loadIndexes(selDb.$id, selCol.$id, { silent: true });
     }
   }, [selDb?.$id, selCol?.$id, tab]);
@@ -722,6 +958,53 @@ export default function StudioPage() {
     else if (selDb) setEditName(selDb.name);
     else setEditName("");
   }, [selDb, selCol]);
+  useEffect(() => {
+    if (!selCol) {
+      setPermissionGrants([]);
+      return;
+    }
+    setPermissionGrants(parsePermissionsToGrants(selCol.permissions ?? []));
+  }, [selCol?.$id, selCol?.permissions]);
+
+  const openNewPermissionDialog = () => {
+    setPermissionEditingId(null);
+    setPermissionDraft(makePermissionGrant());
+    setModal({ kind: "permissionRule" });
+  };
+
+  const openEditPermissionDialog = (grant: PermissionGrant) => {
+    setPermissionEditingId(grant.id);
+    setPermissionDraft({ ...grant, actions: [...grant.actions] });
+    setModal({ kind: "permissionRule" });
+  };
+
+  const savePermissionDialog = () => {
+    const draft = {
+      ...permissionDraft,
+      value: permissionDraft.value.trim(),
+      teamRole: permissionDraft.teamRole.trim(),
+      actions: permissionDraft.actions,
+    };
+
+    if (draft.subject === "user" || draft.subject === "team" || draft.subject === "teamRole" || draft.subject === "member" || draft.subject === "label") {
+      if (!draft.value) { toast.error("Role identifier is required"); return; }
+    }
+    if (draft.subject === "teamRole" && !draft.teamRole) {
+      toast.error("Team role is required");
+      return;
+    }
+    if (!draft.actions.length) {
+      toast.error("Select at least one action");
+      return;
+    }
+
+    if (permissionEditingId) {
+      setPermissionGrants((prev) => prev.map((g) => (g.id === permissionEditingId ? { ...draft, id: g.id } : g)));
+    } else {
+      setPermissionGrants((prev) => [...prev, { ...draft, id: makePermissionGrant().id }]);
+    }
+    closeModal();
+  };
   useEffect(() => {
     if (selAttr) { setEditReq(!!selAttr.required); setEditSize(selAttr.size); setEditDef(""); }
     else { setEditReq(false); setEditSize(undefined); setEditDef(""); }
@@ -906,6 +1189,34 @@ export default function StudioPage() {
       toast.success("Collection renamed");
       await refreshSchemaSilent();
     } catch (e: any) { toast.error(e.message); }
+  };
+
+  const doSaveColPermissions = async () => {
+    if (!selDb || !selCol) return;
+    const permissions = grantsToPermissions(permissionGrants);
+
+    try {
+      await api("updateCollection", {
+        databaseId: selDb.$id,
+        collectionId: selCol.$id,
+        permissions,
+      });
+
+      // Read back from Appwrite so UI reflects exactly what server stored.
+      const updatedRaw = await api("getCollection", {
+        databaseId: selDb.$id,
+        collectionId: selCol.$id,
+      });
+      const updated = normalizeCollection(updatedRaw);
+
+      setCollections((prev) => prev.map((c) => (c.$id === updated.$id ? { ...c, ...updated } : c)));
+      setSelCol((prev) => (prev && prev.$id === updated.$id ? { ...prev, ...updated } : prev));
+      setPermissionGrants(parsePermissionsToGrants(updated.permissions ?? []));
+      toast.success("Collection permissions updated");
+      await refreshSchemaSilent();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
   const doSaveAttr = async () => {
@@ -1136,39 +1447,277 @@ export default function StudioPage() {
   }, [modal]);
 
   /* ─── Relationship line geometry ─── */
-  const edgeAnchor = (from: CanvasNode, to: CanvasNode, fromH: number, toH: number) => {
-    const fx = from.x + NODE_W / 2, fy = from.y + fromH / 2;
-    const tx = to.x + NODE_W / 2, ty = to.y + toH / 2;
-    const dx = tx - fx, dy = ty - fy;
-    let ax: number, ay: number, bx: number, by: number;
-    if (Math.abs(dx) * fromH > Math.abs(dy) * NODE_W) {
-      ax = dx > 0 ? from.x + NODE_W : from.x; ay = fy;
-      bx = dx > 0 ? to.x : to.x + NODE_W; by = ty;
+  const edgeAnchor = (
+    from: CanvasNode,
+    to: CanvasNode,
+    fromAttrs: Attribute[],
+    toAttrs: Attribute[],
+    fromAttrKey: string,
+    toAttrKey?: string
+  ) => {
+    const fallbackSourceY = from.y + nodeH(fromAttrs.length) / 2;
+    const sourceY = relationRowCenterY(from.y, fromAttrs, fromAttrKey) ?? fallbackSourceY;
+
+    const fromCenterX = from.x + NODE_W / 2;
+    const fromCenterY = sourceY;
+    const toCenterX = to.x + NODE_W / 2;
+
+    // Source stays on fixed side port aligned with relationship row.
+    const toRight = toCenterX >= fromCenterX;
+    const ax = toRight ? from.x + NODE_W : from.x;
+    const ay = sourceY;
+
+    // If target has a matching inverse relationship row, snap to that row side port.
+    const targetRowY = toAttrKey ? relationRowCenterY(to.y, toAttrs, toAttrKey) : null;
+
+    let bx: number;
+    let by: number;
+    if (targetRowY !== null) {
+      bx = toRight ? to.x : to.x + NODE_W;
+      by = targetRowY;
     } else {
-      ax = fx; ay = dy > 0 ? from.y + fromH : from.y;
-      bx = tx; by = dy > 0 ? to.y : to.y + toH;
+      // Non two-way target: snap to fixed header side ports (left/right).
+      const headerTopY = to.y;
+      const headerMidY = to.y + NODE_HEADER / 2;
+      const leftPort = { x: to.x, y: headerMidY };
+      const rightPort = { x: to.x + NODE_W, y: headerMidY };
+
+      const candidates = [leftPort, rightPort];
+      const best = candidates.reduce((acc, p) => {
+        const d = Math.hypot(p.x - ax, p.y - ay);
+        return d < acc.dist ? { port: p, dist: d } : acc;
+      }, { port: candidates[0], dist: Number.POSITIVE_INFINITY });
+
+      bx = best.port.x;
+      by = best.port.y;
     }
+
     return { ax, ay, bx, by };
+  };
+
+  const roundedPathFromPoints = (points: Array<{ x: number; y: number }>) => {
+    const cornerRadius = 10;
+    let d = `M ${points[0].x} ${points[0].y}`;
+
+    for (let i = 1; i < points.length - 1; i++) {
+      const prev = points[i - 1];
+      const cur = points[i];
+      const next = points[i + 1];
+
+      const v1x = cur.x - prev.x;
+      const v1y = cur.y - prev.y;
+      const v2x = next.x - cur.x;
+      const v2y = next.y - cur.y;
+      const l1 = Math.hypot(v1x, v1y);
+      const l2 = Math.hypot(v2x, v2y);
+
+      if (l1 < 0.01 || l2 < 0.01) {
+        d += ` L ${cur.x} ${cur.y}`;
+        continue;
+      }
+
+      const ux1 = v1x / l1;
+      const uy1 = v1y / l1;
+      const ux2 = v2x / l2;
+      const uy2 = v2y / l2;
+
+      // Skip rounding for near-collinear segments.
+      if (Math.abs(ux1 - ux2) < 0.001 && Math.abs(uy1 - uy2) < 0.001) {
+        d += ` L ${cur.x} ${cur.y}`;
+        continue;
+      }
+
+      const r = Math.min(cornerRadius, l1 / 2, l2 / 2);
+      const enterX = cur.x - ux1 * r;
+      const enterY = cur.y - uy1 * r;
+      const exitX = cur.x + ux2 * r;
+      const exitY = cur.y + uy2 * r;
+
+      d += ` L ${enterX} ${enterY} Q ${cur.x} ${cur.y} ${exitX} ${exitY}`;
+    }
+
+    d += ` L ${points[points.length - 1].x} ${points[points.length - 1].y}`;
+    return d;
+  };
+
+  const orthogonalEdgePath = (
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    from: CanvasNode,
+    to: CanvasNode,
+    fromId: string,
+    toId: string,
+    offsetLeft: number,
+    offsetTop: number
+  ) => {
+    const PORT_STUB = 18;
+    const CLEARANCE = 14;
+    const SCAN_STEP = 22;
+    const SCAN_LIMIT = 1400;
+
+    // Normalize everything into the same local SVG coordinate space.
+    const fromX = from.x - offsetLeft;
+    const toX = to.x - offsetLeft;
+    const toY = to.y - offsetTop;
+
+    const fromSide = Math.abs(ax - fromX) < 0.5 ? "left" : "right";
+    const toSide = Math.abs(bx - toX) < 0.5
+      ? "left"
+      : Math.abs(bx - (toX + NODE_W)) < 0.5
+        ? "right"
+        : "top";
+
+    const startOut = {
+      x: fromSide === "left" ? ax - PORT_STUB : ax + PORT_STUB,
+      y: ay,
+    };
+
+    const endOut = toSide === "top"
+      ? { x: bx, y: by - PORT_STUB }
+      : {
+          x: toSide === "left" ? bx - PORT_STUB : bx + PORT_STUB,
+          y: by,
+        };
+
+    const rects = Object.values(nodes).map((n) => {
+      const attrs = allAttrs[n.id] ?? [];
+      const h = nodeH(attrs.length);
+      return {
+        id: n.id,
+        l: (n.x - offsetLeft) - CLEARANCE,
+        r: (n.x - offsetLeft) + NODE_W + CLEARANCE,
+        t: (n.y - offsetTop) - CLEARANCE,
+        b: (n.y - offsetTop) + h + CLEARANCE,
+      };
+    });
+
+    const isHorizontalClear = (y: number, x1: number, x2: number) => {
+      const minX = Math.min(x1, x2);
+      const maxX = Math.max(x1, x2);
+      return !rects.some((r) => {
+        if (r.id === fromId || r.id === toId) return false;
+        if (y <= r.t || y >= r.b) return false;
+        return maxX > r.l && minX < r.r;
+      });
+    };
+
+    const isVerticalClear = (x: number, y1: number, y2: number) => {
+      const minY = Math.min(y1, y2);
+      const maxY = Math.max(y1, y2);
+      return !rects.some((r) => {
+        if (r.id === fromId || r.id === toId) return false;
+        if (x <= r.l || x >= r.r) return false;
+        return maxY > r.t && minY < r.b;
+      });
+    };
+
+    // Strategy 1: vertical corridor (side routing) — H → V → H
+    const routeWithX = (cx: number) => {
+      if (!isHorizontalClear(startOut.y, startOut.x, cx)) return false;
+      if (!isVerticalClear(cx, startOut.y, endOut.y)) return false;
+      if (!isHorizontalClear(endOut.y, cx, endOut.x)) return false;
+      return true;
+    };
+
+    // Strategy 2: horizontal corridor (top/bottom routing) — V → H → V
+    const routeWithY = (cy: number) => {
+      if (!isVerticalClear(startOut.x, startOut.y, cy)) return false;
+      if (!isHorizontalClear(cy, startOut.x, endOut.x)) return false;
+      if (!isVerticalClear(endOut.x, cy, endOut.y)) return false;
+      return true;
+    };
+
+    const midX = (startOut.x + endOut.x) / 2;
+    const midY = (startOut.y + endOut.y) / 2;
+
+    // Try vertical corridor first (typical side routing)
+    const xCandidates: number[] = [startOut.x, endOut.x, midX];
+    for (let step = 0; step <= SCAN_LIMIT; step += SCAN_STEP) {
+      xCandidates.push(midX + step, midX - step);
+    }
+    const corridorX = xCandidates.find((c) => routeWithX(c));
+
+    // Try horizontal corridor (top/bottom routing)
+    const yCandidates: number[] = [startOut.y, endOut.y, midY];
+    for (let step = 0; step <= SCAN_LIMIT; step += SCAN_STEP) {
+      yCandidates.push(midY + step, midY - step);
+    }
+    const corridorY = yCandidates.find((c) => routeWithY(c));
+
+    // Pick the shortest clear route among strategies
+    let points: Array<{ x: number; y: number }>;
+
+    const makeXRoute = (cx: number) => [
+      { x: ax, y: ay },
+      { x: startOut.x, y: startOut.y },
+      { x: cx, y: startOut.y },
+      { x: cx, y: endOut.y },
+      { x: endOut.x, y: endOut.y },
+      { x: bx, y: by },
+    ];
+
+    const makeYRoute = (cy: number) => [
+      { x: ax, y: ay },
+      { x: startOut.x, y: startOut.y },
+      { x: startOut.x, y: cy },
+      { x: endOut.x, y: cy },
+      { x: endOut.x, y: endOut.y },
+      { x: bx, y: by },
+    ];
+
+    const pathLen = (pts: Array<{ x: number; y: number }>) =>
+      pts.reduce((sum, p, i) => (i === 0 ? 0 : sum + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y)), 0);
+
+    if (corridorX !== undefined && corridorY !== undefined) {
+      const xRoute = makeXRoute(corridorX);
+      const yRoute = makeYRoute(corridorY);
+      points = pathLen(xRoute) <= pathLen(yRoute) ? xRoute : yRoute;
+    } else if (corridorX !== undefined) {
+      points = makeXRoute(corridorX);
+    } else if (corridorY !== undefined) {
+      points = makeYRoute(corridorY);
+    } else {
+      // Fallback: use the midpoint X route even if obstructed
+      points = makeXRoute(midX);
+    }
+
+    return roundedPathFromPoints(points);
   };
 
   const nodeArr = Object.values(nodes);
   const selNodeId = selCol?.$id ?? null;
 
-  const allRels = useMemo(() => {
-    const seen = new Set<string>();
-    return rels.filter(r => { const k = `${r.from}→${r.to}`; if (seen.has(k)) return false; seen.add(k); return true; });
-  }, [rels]);
+  const allRels = useMemo(() => extractRelationshipEdges(allAttrs), [allAttrs]);
 
-  const onToolEnter = (e: React.PointerEvent<HTMLButtonElement>, label: string) => {
-    const toolbelt = toolbeltRef.current;
-    if (!toolbelt) return;
-    const iconRect = e.currentTarget.getBoundingClientRect();
-    const beltRect = toolbelt.getBoundingClientRect();
-    const x = iconRect.left - beltRect.left + iconRect.width / 2;
-    setHoverTool({ label, x });
-  };
+  const edgeBounds = useMemo(() => {
+    if (!nodeArr.length) {
+      return { left: 0, top: 0, width: 1, height: 1 };
+    }
 
-  const onToolLeave = () => setHoverTool(null);
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    for (const node of nodeArr) {
+      const attrs = allAttrs[node.id] ?? [];
+      const h = nodeH(attrs.length);
+      minX = Math.min(minX, node.x);
+      minY = Math.min(minY, node.y);
+      maxX = Math.max(maxX, node.x + NODE_W);
+      maxY = Math.max(maxY, node.y + h);
+    }
+
+    const pad = 480;
+    return {
+      left: minX - pad,
+      top: minY - pad,
+      width: Math.max(1, maxX - minX + pad * 2),
+      height: Math.max(1, maxY - minY + pad * 2),
+    };
+  }, [nodeArr, allAttrs]);
 
   /* ═══════════════════════════════════════════
      RENDER
@@ -1190,16 +1739,6 @@ export default function StudioPage() {
         theme={theme === "dark" ? "dark" : "light"}
       />
 
-      <button
-        type="button"
-        onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-        style={S.themeToggle}
-        aria-label="Toggle theme"
-      >
-        {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-        <span>{theme === "dark" ? "Light" : "Dark"}</span>
-      </button>
-
       {/* ═══ MODAL ═══ */}
       <AnimatePresence>
         {modal && (
@@ -1217,7 +1756,11 @@ export default function StudioPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{ duration: 0.15 }}
-              style={{ ...S.modal, ...(modal.kind === "typesPreview" ? S.modalWide : {}) }}
+              style={{
+                ...S.modal,
+                ...(modal.kind === "typesPreview" ? S.modalWide : {}),
+                ...(modal.kind === "permissionRule" ? { width: 520 } : {}),
+              }}
               onClick={e => e.stopPropagation()}
             >
               <button onClick={closeModal} style={S.modalClose}><X size={16} /></button>
@@ -1229,7 +1772,7 @@ export default function StudioPage() {
                   <input autoFocus style={S.input} value={mf.dbId ?? ""} onChange={e => setMf(p => ({ ...p, dbId: e.target.value }))} placeholder="unique-id" />
                   <label style={S.label}>Name</label>
                   <input style={S.input} value={mf.dbName ?? ""} onChange={e => setMf(p => ({ ...p, dbName: e.target.value }))} placeholder="My Database" />
-                  <button onClick={doCreateDatabase} disabled={busy} style={S.btnAccent}>
+                  <button onClick={doCreateDatabase} disabled={busy} style={S.modalBtnPrimary}>
                     {busy ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Create
                   </button>
                 </>
@@ -1242,7 +1785,7 @@ export default function StudioPage() {
                   <input autoFocus style={S.input} value={mf.colId ?? ""} onChange={e => setMf(p => ({ ...p, colId: e.target.value }))} placeholder="unique-id" />
                   <label style={S.label}>Name</label>
                   <input style={S.input} value={mf.colName ?? ""} onChange={e => setMf(p => ({ ...p, colName: e.target.value }))} placeholder="Users" />
-                  <button onClick={() => doCreateCollection(modal.pos)} disabled={busy} style={S.btnAccent}>
+                  <button onClick={() => doCreateCollection(modal.pos)} disabled={busy} style={S.modalBtnPrimary}>
                     {busy ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Create
                   </button>
                 </>
@@ -1351,7 +1894,7 @@ export default function StudioPage() {
                       </select>
                     </>
                   )}
-                  <button onClick={() => doCreateAttributeFromForm(modal.colId)} disabled={busy} style={S.btnAccent}>
+                  <button onClick={() => doCreateAttributeFromForm(modal.colId)} disabled={busy} style={S.modalBtnPrimary}>
                     {busy ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Create Attribute
                   </button>
                 </>
@@ -1362,7 +1905,7 @@ export default function StudioPage() {
                   <p style={S.modalH}>Create Document</p>
                   <label style={S.label}>JSON Data</label>
                   <textarea style={{ ...S.input, height: 140, fontFamily: "monospace", resize: "vertical" }} value={mf.docJson ?? "{}"} onChange={e => setMf(p => ({ ...p, docJson: e.target.value }))} />
-                  <button onClick={doCreateDocument} disabled={busy} style={S.btnAccent}>
+                  <button onClick={doCreateDocument} disabled={busy} style={S.modalBtnPrimary}>
                     {busy ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Create
                   </button>
                 </>
@@ -1374,7 +1917,7 @@ export default function StudioPage() {
                   <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8, fontFamily: "monospace" }}>{modal.docId}</div>
                   <label style={S.label}>JSON Data</label>
                   <textarea style={{ ...S.input, height: 180, fontFamily: "monospace", resize: "vertical" }} value={mf.docJson ?? modal.json} onChange={e => setMf(p => ({ ...p, docJson: e.target.value }))} />
-                  <button onClick={doUpdateDocument} disabled={busy} style={S.btnAccent}>
+                  <button onClick={doUpdateDocument} disabled={busy} style={S.modalBtnPrimary}>
                     {busy ? <Loader2 size={14} className="spin" /> : <Check size={14} />} Save
                   </button>
                 </>
@@ -1393,7 +1936,7 @@ export default function StudioPage() {
                   </select>
                   <label style={S.label}>Attributes (comma-separated)</label>
                   <input style={S.input} value={mf.idxAttrs ?? ""} onChange={e => setMf(p => ({ ...p, idxAttrs: e.target.value }))} placeholder="name, email" />
-                  <button onClick={doCreateIndex} disabled={busy} style={S.btnAccent}>
+                  <button onClick={doCreateIndex} disabled={busy} style={S.modalBtnPrimary}>
                     {busy ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Create
                   </button>
                 </>
@@ -1403,11 +1946,11 @@ export default function StudioPage() {
                 <>
                   <p style={S.modalH}>{modal.title}</p>
                   <p style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.6, marginBottom: 20 }}>{modal.message}</p>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={closeModal} style={S.btnGhost}>Cancel</button>
-                    <button onClick={() => { closeModal(); modal.onConfirm(); }} style={S.btnDanger}>
+                  <div style={S.modalActionCol}>
+                    <button onClick={() => { closeModal(); modal.onConfirm(); }} style={S.modalBtnDanger}>
                       <Trash2 size={14} /> Delete
                     </button>
+                    <button onClick={closeModal} style={S.modalBtnSecondary}>Cancel</button>
                   </div>
                 </>
               )}
@@ -1452,6 +1995,79 @@ export default function StudioPage() {
                   </>
                 );
               })()}
+
+              {modal.kind === "permissionRule" && (
+                <>
+                  <p style={S.modalH}>{permissionEditingId ? "Edit Permission Rule" : "Add Permission Rule"}</p>
+                  <label style={S.label}>Role Type</label>
+                  <select
+                    value={permissionDraft.subject}
+                    onChange={(e) => setPermissionDraft((p) => ({ ...p, subject: e.target.value as PermissionSubject, value: "", teamRole: "" }))}
+                    style={S.select}
+                  >
+                    {PERMISSION_SUBJECTS.map((subject) => (
+                      <option key={subject.value} value={subject.value}>{subject.label}</option>
+                    ))}
+                  </select>
+
+                  {(permissionDraft.subject === "user" || permissionDraft.subject === "team" || permissionDraft.subject === "member" || permissionDraft.subject === "label" || permissionDraft.subject === "teamRole") && (
+                    <>
+                      <label style={S.label}>Identifier</label>
+                      <input
+                        value={permissionDraft.value}
+                        onChange={(e) => setPermissionDraft((p) => ({ ...p, value: e.target.value }))}
+                        placeholder={permissionDraft.subject === "user" ? "userId" : permissionDraft.subject === "team" || permissionDraft.subject === "teamRole" ? "teamId" : permissionDraft.subject === "member" ? "membershipId" : "labelId"}
+                        style={S.input}
+                      />
+                    </>
+                  )}
+
+                  {permissionDraft.subject === "teamRole" && (
+                    <>
+                      <label style={S.label}>Team Role</label>
+                      <input
+                        value={permissionDraft.teamRole}
+                        onChange={(e) => setPermissionDraft((p) => ({ ...p, teamRole: e.target.value }))}
+                        placeholder="owner"
+                        style={S.input}
+                      />
+                    </>
+                  )}
+
+                  <label style={S.label}>Actions</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 6, marginBottom: 12 }}>
+                    {PERMISSION_ACTIONS.map((action) => {
+                      const selected = permissionDraft.actions.includes(action);
+                      return (
+                        <button
+                          key={action}
+                          type="button"
+                          onClick={() => setPermissionDraft((p) => ({
+                            ...p,
+                            actions: selected ? p.actions.filter((a) => a !== action) : [...p.actions, action],
+                          }))}
+                          style={{
+                            ...S.btnGhost,
+                            flex: "unset",
+                            borderColor: selected ? "#6366f1" : "var(--panel-border)",
+                            background: selected ? "rgba(99,102,241,0.12)" : "transparent",
+                            color: selected ? "#6366f1" : "var(--muted)",
+                            padding: "6px 8px",
+                            fontSize: 11,
+                          }}
+                        >
+                          {action}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={S.modalActionCol}>
+                    <button onClick={savePermissionDialog} style={S.modalBtnPrimary}><Check size={14} /> Save Rule</button>
+                    <button onClick={closeModal} style={S.modalBtnSecondary}>Cancel</button>
+                  </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
@@ -1490,14 +2106,7 @@ export default function StudioPage() {
               </div>
             )}
 
-            {connected && (
-              <section>
-                <div style={S.secH}><GripVertical size={12} /> Canvas Tools</div>
-                <div style={{ fontSize: 12, color: "var(--muted-2)", lineHeight: 1.6 }}>
-                  Drag icon-only tools from the top header onto the canvas.
-                </div>
-              </section>
-            )}
+           
 
             {/* Databases */}
             {connected && (
@@ -1583,57 +2192,65 @@ export default function StudioPage() {
             {!selDb && <span style={{ color: "var(--muted-2)" }}>No database selected</span>}
           </div>
           {connected && (
-            <div ref={toolbeltRef} style={S.headerToolbelt}>
-              <button
-                title="New database"
-                draggable
-                onDragStart={e => startPaletteDrag(e, { type: "new-database" })}
-                onPointerEnter={(e) => onToolEnter(e, "Database")}
-                onPointerLeave={onToolLeave}
-                style={S.headerToolBtn}
-              >
-                <DatabaseIcon size={14} />
-              </button>
-              <button
-                title="New collection"
-                draggable
-                onDragStart={e => startPaletteDrag(e, { type: "new-collection" })}
-                onPointerEnter={(e) => onToolEnter(e, "Collection")}
-                onPointerLeave={onToolLeave}
-                style={S.headerToolBtn}
-                disabled={!selDb}
-              >
-                <Table2 size={14} />
-              </button>
-              <div style={S.headerToolDivider} />
-              {ATTR_TYPES.map((at) => (
-                <button
-                  key={at}
-                  title={`Attribute: ${at}`}
-                  draggable
-                  onDragStart={e => startPaletteDrag(e, { type: "attr-type", attrType: at })}
-                  onPointerEnter={(e) => onToolEnter(e, at.charAt(0).toUpperCase() + at.slice(1))}
-                  onPointerLeave={onToolLeave}
-                  style={{ ...S.headerToolBtn, color: typeColor(at) }}
-                >
-                  <TypeIcon type={at} size={13} />
-                </button>
-              ))}
-              <AnimatePresence>
-                {hoverTool && (
-                  <motion.div
-                    key={hoverTool.label}
-                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                    style={{ ...S.headerToolTipWrap, left: hoverTool.x }}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={S.headerToolbelt}>
+                <Tooltip>
+                  <TooltipTrigger
+                    title="New database"
+                    draggable
+                    onDragStart={e => startPaletteDrag(e, { type: "new-database" })}
+                    style={S.headerToolBtn}
                   >
-                    <span style={S.headerToolTipStem} />
-                    <span style={S.headerToolLabel}>{hoverTool.label}</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    <DatabaseIcon size={14} />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={12} className="rounded-xl px-4 py-2 text-sm font-semibold">
+                    Database
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    title="New collection"
+                    draggable
+                    onDragStart={e => startPaletteDrag(e, { type: "new-collection" })}
+                    style={S.headerToolBtn}
+                    disabled={!selDb}
+                  >
+                    <Table2 size={14} />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={12} className="rounded-xl px-4 py-2 text-sm font-semibold">
+                    Collection
+                  </TooltipContent>
+                </Tooltip>
+                <div style={S.headerToolDivider} />
+                {ATTR_TYPES.map((at) => (
+                  <Tooltip key={at}>
+                    <TooltipTrigger
+                      title={`Attribute: ${at}`}
+                      draggable
+                      onDragStart={e => startPaletteDrag(e, { type: "attr-type", attrType: at })}
+                      style={{ ...S.headerToolBtn, color: typeColor(at) }}
+                    >
+                      <TypeIcon type={at} size={13} />
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={12} className="rounded-xl px-4 py-2 text-sm font-semibold">
+                      {at.charAt(0).toUpperCase() + at.slice(1)}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+              <Tooltip>
+                <TooltipTrigger
+                  type="button"
+                  onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                  style={S.headerThemeBtn}
+                  aria-label="Toggle theme"
+                >
+                  {theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={12} className="rounded-xl px-4 py-2 text-sm font-semibold">
+                  Theme
+                </TooltipContent>
+              </Tooltip>
             </div>
           )}
           {busy && (
@@ -1664,23 +2281,37 @@ export default function StudioPage() {
           }}>
 
             {/* Relationship lines */}
-            <svg style={{ position: "absolute", left: 0, top: 0, width: 10000, height: 10000, pointerEvents: "none", zIndex: 1 }}>
+            <svg style={{ position: "absolute", left: edgeBounds.left, top: edgeBounds.top, width: edgeBounds.width, height: edgeBounds.height, pointerEvents: "none", zIndex: 1 }}>
               {allRels.map((rel, i) => {
                 const from = nodes[rel.from], to = nodes[rel.to];
                 if (!from || !to) return null;
                 const fA = allAttrs[rel.from] ?? [], tA = allAttrs[rel.to] ?? [];
-                const { ax, ay, bx, by } = edgeAnchor(from, to, nodeH(fA.length), nodeH(tA.length));
-                const dx = bx - ax, dy = by - ay;
-                const horiz = Math.abs(dx) > Math.abs(dy);
-                const cpx = horiz ? dx * 0.5 : 0;
-                const cpy = horiz ? 0 : dy * 0.5;
+                const { ax, ay, bx, by } = edgeAnchor(from, to, fA, tA, rel.fromAttrKey, rel.toAttrKey);
+                const lax = ax - edgeBounds.left;
+                const lay = ay - edgeBounds.top;
+                const lbx = bx - edgeBounds.left;
+                const lby = by - edgeBounds.top;
+                const pathD = orthogonalEdgePath(
+                  lax,
+                  lay,
+                  lbx,
+                  lby,
+                  from,
+                  to,
+                  rel.from,
+                  rel.to,
+                  edgeBounds.left,
+                  edgeBounds.top
+                );
                 return (
                   <motion.path
-                    key={i}
-                    d={`M ${ax} ${ay} C ${ax + cpx} ${ay + cpy}, ${bx - cpx} ${by - cpy}, ${bx} ${by}`}
+                    key={rel.id}
+                    d={pathD}
                     fill="none"
                     stroke="var(--accent-soft)"
                     strokeWidth={1}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
                     opacity={0.85}
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: 0.85 }}
@@ -1692,15 +2323,35 @@ export default function StudioPage() {
 
             {/* Empty state */}
             {nodeArr.length === 0 && !busy && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2, pointerEvents: "none" }}>
-                <div style={{ textAlign: "center", maxWidth: 380 }}>
-                  <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "grid",
+                  placeItems: "center",
+                  zIndex: 2,
+                  pointerEvents: "none",
+                  padding: "0 20px",
+                }}
+              >
+                <div
+                  style={{
+                    maxWidth: 460,
+                    width: "100%",
+                    textAlign: "center",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 2 }}>
                     <Layers size={48} style={{ color: "var(--panel-border)" }} />
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-dim)", marginBottom: 8 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-dim)" }}>
                     {connected ? "Your canvas is empty" : "Connect to Appwrite"}
                   </div>
-                  <div style={{ fontSize: 13, color: "var(--muted-2)", lineHeight: 1.7 }}>
+                  <div style={{ fontSize: 13, color: "var(--muted-2)", lineHeight: 1.7, maxWidth: 420 }}>
                     {connected
                       ? "Drag schema icons from the top bar onto canvas or collection cards to start building your schema."
                       : "Enter your Appwrite credentials in the sidebar to begin."}
@@ -1730,7 +2381,7 @@ export default function StudioPage() {
                     position: "absolute", left: node.x, top: node.y, width: NODE_W, minHeight: h,
                     background: "var(--panel-elev)",
                     border: `1px solid ${isDrop ? "#10b981" : isSel ? "#6366f1" : "var(--panel-border)"}`,
-                    borderRadius: 12,
+                    borderRadius: 16,
                     boxShadow: "none",
                     cursor: "grab", touchAction: "none", zIndex: isSel ? 10 : 5,
                     userSelect: "none", transition: "border-color 0.15s, box-shadow 0.2s",
@@ -1739,6 +2390,9 @@ export default function StudioPage() {
                 >
                   {/* Header */}
                   <div style={{
+                    position: "relative",
+                    height: NODE_HEADER,
+                    boxSizing: "border-box",
                     padding: "10px 14px", display: "flex", alignItems: "center", gap: 8,
                     background: isDrop ? "rgba(16,185,129,0.08)" : isSel ? "rgba(99,102,241,0.08)" : "var(--accent-soft-bg)",
                     borderBottom: "1px solid var(--panel-border)",
@@ -1746,9 +2400,53 @@ export default function StudioPage() {
                     <Table2 size={14} style={{ color: isDrop ? "#10b981" : isSel ? "var(--accent-soft)" : "var(--muted-2)", flexShrink: 0 }} />
                     <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.label}</span>
                     <span style={{ fontSize: 10, color: "var(--muted-2)", fontFamily: "monospace", background: "var(--surface)", padding: "1px 6px", borderRadius: 4 }}>{attrs.length}</span>
+
+                    {/* Fixed header ports for non two-way targets: left, top, right */}
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: -4,
+                        top: "50%",
+                        width: 8,
+                        height: 8,
+                        transform: "translateY(-50%)",
+                        borderRadius: "50%",
+                        background: "var(--accent-soft)",
+                        border: "1px solid var(--panel-elev)",
+                        boxShadow: "0 0 0 1px var(--accent-soft-bg)",
+                      }}
+                    />
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: -4,
+                        left: "50%",
+                        width: 8,
+                        height: 8,
+                        transform: "translateX(-50%)",
+                        borderRadius: "50%",
+                        background: "var(--accent-soft)",
+                        border: "1px solid var(--panel-elev)",
+                        boxShadow: "0 0 0 1px var(--accent-soft-bg)",
+                      }}
+                    />
+                    <span
+                      style={{
+                        position: "absolute",
+                        right: -4,
+                        top: "50%",
+                        width: 8,
+                        height: 8,
+                        transform: "translateY(-50%)",
+                        borderRadius: "50%",
+                        background: "var(--accent-soft)",
+                        border: "1px solid var(--panel-elev)",
+                        boxShadow: "0 0 0 1px var(--accent-soft-bg)",
+                      }}
+                    />
                   </div>
                   {/* Rows */}
-                  <div style={{ padding: "4px 0" }}>
+                  <div style={{ padding: 0 }}>
                     {attrs.length === 0 ? (
                       <div style={{ padding: "10px 14px", fontSize: 11, color: "var(--text-dim)", fontStyle: "italic" }}>
                         {isDrop ? "Drop to add" : "No attributes"}
@@ -1758,19 +2456,53 @@ export default function StudioPage() {
                         key={a.key}
                         onClick={e => { e.stopPropagation(); setSelCol(collections.find(c => c.$id === node.id) ?? null); setSelAttr(a); }}
                         style={{
-                          display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", fontSize: 12,
+                          position: "relative",
+                          height: ATTR_ROW,
+                          boxSizing: "border-box",
+                          display: "flex", alignItems: "center", gap: 8, padding: "0 14px", fontSize: 12,
                           color: selAttr?.key === a.key && selCol?.$id === node.id ? "var(--text)" : "var(--muted)",
                           background: selAttr?.key === a.key && selCol?.$id === node.id
                             ? "rgba(99,102,241,0.1)"
                             : idx % 2 === 0 ? "transparent" : "var(--accent-soft-bg)",
                           cursor: "pointer", transition: "background 0.1s",
-                          borderLeft: `2px solid ${typeColor(a.type)}`,
                         }}
                       >
                         <TypeIcon type={a.type} size={12} />
                         <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.key}</span>
                         <span style={{ fontSize: 9, color: typeColor(a.type), fontFamily: "monospace", textTransform: "uppercase", opacity: 0.7 }}>{a.type.substring(0, 4)}</span>
                         {a.required && <span style={{ fontSize: 8, color: "#eab308", fontWeight: 700 }}>REQ</span>}
+                        {a.type === "relationship" && (
+                          <>
+                            <span
+                              style={{
+                                position: "absolute",
+                                left: -4,
+                                top: "50%",
+                                width: 8,
+                                height: 8,
+                                transform: "translateY(-50%)",
+                                borderRadius: "50%",
+                                background: "var(--accent-soft)",
+                                border: "1px solid var(--panel-elev)",
+                                boxShadow: "0 0 0 1px var(--accent-soft-bg)",
+                              }}
+                            />
+                            <span
+                              style={{
+                                position: "absolute",
+                                right: -4,
+                                top: "50%",
+                                width: 8,
+                                height: 8,
+                                transform: "translateY(-50%)",
+                                borderRadius: "50%",
+                                background: "var(--accent-soft)",
+                                border: "1px solid var(--panel-elev)",
+                                boxShadow: "0 0 0 1px var(--accent-soft-bg)",
+                              }}
+                            />
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1896,15 +2628,15 @@ export default function StudioPage() {
 
                 {/* Tabs */}
                 <div style={S.tabBar}>
-                  {(["schema", "docs", "indexes"] as const).map(t => (
+                  {(["schema", "permissions", "indexes"] as const).map(t => (
                     <button key={t} onClick={() => setTab(t)} style={{
                       ...S.tabBtn,
                       background: tab === t ? "rgba(99,102,241,0.1)" : "transparent",
                       color: tab === t ? "#a5b4fc" : "#475569",
                       borderBottom: tab === t ? "2px solid #6366f1" : "2px solid transparent",
                     }}>
-                      {t === "schema" ? <Columns3 size={12} /> : t === "docs" ? <FileText size={12} /> : <Key size={12} />}
-                      {t === "docs" ? "Docs" : t === "indexes" ? "Idx" : "Schema"}
+                      {t === "schema" ? <Columns3 size={12} /> : t === "permissions" ? <Key size={12} /> : <Key size={12} />}
+                      {t === "permissions" ? "Perms" : t === "indexes" ? "Idx" : "Schema"}
                     </button>
                   ))}
                 </div>
@@ -1920,7 +2652,7 @@ export default function StudioPage() {
                           <option key={c.$id} value={c.$id}>{c.name}</option>
                         ))}
                       </select>
-                      {rels.filter(r => r.from === selCol.$id || r.to === selCol.$id).map((r, i) => {
+                      {allRels.filter(r => r.from === selCol.$id || r.to === selCol.$id).map((r, i) => {
                         const otherId = r.from === selCol.$id ? r.to : r.from;
                         const other = collections.find(c => c.$id === otherId);
                         return (
@@ -1950,25 +2682,69 @@ export default function StudioPage() {
                   </>
                 )}
 
-                {tab === "docs" && (
+                {tab === "permissions" && (
                   <>
                     <div style={{ ...S.secH, marginTop: 12, justifyContent: "space-between" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}><FileText size={12} /> Documents</span>
-                      <button onClick={() => { setMf({ docJson: "{}" }); setModal({ kind: "createDoc" }); }} style={S.addBtn}><Plus size={12} /></button>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Key size={12} /> Permissions Builder</span>
+                      <button
+                        onClick={openNewPermissionDialog}
+                        style={S.addBtn}
+                        title="Add permission rule"
+                      >
+                        <Plus size={12} />
+                      </button>
                     </div>
-                    {documents.length === 0 ? (
-                      <div style={{ fontSize: 12, color: "#334155" }}>No documents</div>
-                    ) : documents.map(doc => (
-                      <div key={doc.$id} style={S.listRow}>
-                        <button onClick={() => setSelDoc(doc)} style={{ ...S.listBtn, flex: 1 }}>
-                          <FileText size={13} />
-                          <span style={{ fontSize: 12, fontFamily: "monospace", color: "#6b7280" }}>{doc.$id.substring(0, 16)}...</span>
-                        </button>
-                        <button onClick={() => setModal({ kind: "confirm", title: "Delete", message: `Delete "${doc.$id}"?`, onConfirm: () => doDeleteDocument(doc.$id) })} style={S.delBtn}>
-                          <Trash2 size={11} />
-                        </button>
+                    <div style={S.card}>
+                      <label style={S.label}>Rules</label>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                        {permissionGrants.length === 0 && (
+                          <div style={{ fontSize: 12, color: "var(--muted-2)" }}>No rules yet. Add a permission rule.</div>
+                        )}
+                        {permissionGrants.map((grant) => {
+                          const subjectMeta = PERMISSION_SUBJECTS.find((s) => s.value === grant.subject);
+                          const roleText = grant.subject === "teamRole"
+                            ? `${subjectMeta?.label}: ${grant.value} / ${grant.teamRole}`
+                            : grant.value
+                              ? `${subjectMeta?.label}: ${grant.value}`
+                              : `${subjectMeta?.label}`;
+                          return (
+                            <div key={grant.id} style={{ ...S.card, padding: 10 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{roleText}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <button onClick={() => openEditPermissionDialog(grant)} style={S.addBtn} title="Edit rule"><Pencil size={11} /></button>
+                                  <button onClick={() => setPermissionGrants((prev) => prev.filter((g) => g.id !== grant.id))} style={S.delBtn} title="Remove rule"><Trash2 size={11} /></button>
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                                {grant.actions.map((action) => (
+                                  <span key={action} style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, padding: "3px 8px", borderRadius: 999, border: "1px solid var(--accent-soft-border)", background: "var(--accent-soft-bg)", color: "var(--accent-soft)" }}>
+                                    {action}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+
+                      <label style={S.label}>Generated Permissions</label>
+                      <div style={{ ...S.permissionPreviewShell, marginTop: 0 }}>
+                        <pre style={S.permissionPreviewPre}>
+                          {grantsToPermissions(permissionGrants).length
+                            ? grantsToPermissions(permissionGrants).join("\n")
+                            : "// Add at least one valid rule"}
+                        </pre>
+                      </div>
+
+                      <div style={{ fontSize: 11, color: "var(--muted-2)", lineHeight: 1.5, marginTop: 10, marginBottom: 10 }}>
+                        Clean builder inspired by Appwrite Console: choose action, choose target, then fill IDs where needed.
+                      </div>
+                      <button onClick={doSaveColPermissions} disabled={busy} style={{ ...S.btnAccent, width: "100%" }}>
+                        <Check size={14} /> Save Permissions
+                      </button>
+                    </div>
+
                   </>
                 )}
 
@@ -2040,6 +2816,9 @@ export default function StudioPage() {
 const S = {
   root: {
     width: "100vw", height: "100vh", display: "flex", overflow: "hidden", position: "relative" as const,
+    boxSizing: "border-box",
+    paddingLeft: PANEL_MARGIN,
+    paddingRight: PANEL_MARGIN,
     background: "var(--bg)", color: "var(--text)",
     backgroundImage: "radial-gradient(circle, var(--canvas-dot) 1px, transparent 1px)",
     backgroundSize: `${GRID}px ${GRID}px`,
@@ -2049,9 +2828,12 @@ const S = {
   /* ── Panels ── */
   leftPanel: {
     height: `calc(100vh - ${PANEL_MARGIN * 2}px)`, overflow: "hidden", flexShrink: 0,
-    margin: PANEL_MARGIN,
+    marginTop: PANEL_MARGIN,
+    marginBottom: PANEL_MARGIN,
+    marginLeft: PANEL_MARGIN,
+    marginRight: 0,
     border: "1px solid var(--panel-border)",
-    borderRadius: 12,
+    borderRadius: "30px",
     background: "var(--panel-float)",
     backdropFilter: "blur(10px)",
     boxShadow: "0 14px 34px rgba(0,0,0,0.14)",
@@ -2061,14 +2843,17 @@ const S = {
   } as React.CSSProperties,
   logo: {
     padding: "14px 16px", display: "flex", alignItems: "center", gap: 8,
-    borderBottom: "1px solid var(--line)", color: "var(--accent-soft)",
+    color: "var(--accent-soft)",
   } as React.CSSProperties,
 
   rightPanel: {
     height: `calc(100vh - ${PANEL_MARGIN * 2}px)`, overflow: "hidden", flexShrink: 0,
-    margin: PANEL_MARGIN,
+    marginTop: PANEL_MARGIN,
+    marginBottom: PANEL_MARGIN,
+    marginLeft: 0,
+    marginRight: PANEL_MARGIN,
     border: "1px solid var(--panel-border)",
-    borderRadius: 12,
+    borderRadius: "30px",
     background: "var(--panel-float)",
     backdropFilter: "blur(10px)",
     boxShadow: "0 14px 34px rgba(0,0,0,0.14)",
@@ -2078,26 +2863,6 @@ const S = {
   } as React.CSSProperties,
   rightHeader: {
     padding: "14px 16px", display: "flex", alignItems: "center", gap: 8,
-    borderBottom: "1px solid var(--line)",
-  } as React.CSSProperties,
-
-  themeToggle: {
-    position: "fixed" as const,
-    top: 16,
-    right: 16,
-    zIndex: 60,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "7px 10px",
-    fontSize: 12,
-    fontWeight: 600,
-    color: "var(--text)",
-    background: "var(--glass)",
-    backdropFilter: "blur(10px)",
-    border: "1px solid var(--panel-border)",
-    borderRadius: 10,
-    cursor: "pointer",
   } as React.CSSProperties,
 
   /* ── Breadcrumb ── */
@@ -2106,14 +2871,14 @@ const S = {
     zIndex: 20, display: "flex", alignItems: "center", gap: 12,
     width: "fit-content", margin: "0 auto",
     padding: "8px 16px", background: "var(--glass)", backdropFilter: "blur(12px)",
-    border: "1px solid var(--line)", borderRadius: 10, fontSize: 12,
+    border: "1px solid var(--line)", borderRadius: 999, fontSize: 12,
   } as React.CSSProperties,
   headerToolbelt: {
     display: "flex",
     alignItems: "center",
     gap: 4,
     padding: "4px 6px",
-    borderRadius: 8,
+    borderRadius: 999,
     background: "var(--surface)",
     border: "1px solid var(--line)",
     position: "relative" as const,
@@ -2122,7 +2887,7 @@ const S = {
     width: 24,
     height: 24,
     border: "none",
-    borderRadius: 6,
+    borderRadius: 999,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -2136,58 +2901,42 @@ const S = {
     background: "var(--line)",
     margin: "0 2px",
   } as React.CSSProperties,
-  headerToolLabel: {
-    padding: "6px 12px",
-    borderRadius: 12,
-    fontSize: 12,
-    fontWeight: 700,
-    letterSpacing: 0.2,
-    color: "var(--text)",
-    background: "var(--glass)",
+  headerThemeBtn: {
+    width: 34,
+    height: 34,
+    boxSizing: "border-box",
     border: "1px solid var(--line)",
-    boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
-    whiteSpace: "nowrap" as const,
-  } as React.CSSProperties,
-  headerToolTipWrap: {
-    position: "absolute" as const,
-    top: "calc(100% + 10px)",
-    transform: "translateX(-50%)",
-    display: "flex",
-    flexDirection: "column" as const,
+    borderRadius: 999,
+    display: "inline-flex",
     alignItems: "center",
-    gap: 6,
-    pointerEvents: "none",
-    zIndex: 25,
+    justifyContent: "center",
+    background: "var(--surface)",
+    color: "var(--text-dim)",
+    cursor: "pointer",
   } as React.CSSProperties,
-  headerToolTipStem: {
-    width: 1,
-    height: 12,
-    background: "var(--line)",
-  } as React.CSSProperties,
-
   /* ── Zoom ── */
   zoomBar: {
     position: "absolute" as const, bottom: 16, right: 16, zIndex: 30,
     display: "flex", alignItems: "center", gap: 2,
     padding: "4px 6px", background: "var(--glass-strong)", backdropFilter: "blur(12px)",
-    border: "1px solid var(--line)", borderRadius: 10,
+    border: "1px solid var(--line)", borderRadius: 999,
   } as React.CSSProperties,
   zoomBtn: {
     width: 32, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
     background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer",
-    borderRadius: 6, fontSize: 13,
+    borderRadius: 999, fontSize: 13,
   } as React.CSSProperties,
 
   /* ── Form elements ── */
   input: {
     width: "100%", padding: "8px 10px", fontSize: 13,
-    background: "var(--surface)", border: "1px solid var(--panel-border)", borderRadius: 8,
+    background: "var(--surface)", border: "1px solid var(--panel-border)", borderRadius: 999,
     color: "var(--text)", outline: "none", marginBottom: 6,
     transition: "border-color 0.15s",
   } as React.CSSProperties,
   select: {
     width: "100%", padding: "8px 10px", fontSize: 13,
-    background: "var(--surface)", border: "1px solid var(--panel-border)", borderRadius: 8,
+    background: "var(--surface)", border: "1px solid var(--panel-border)", borderRadius: 999,
     color: "var(--text)", outline: "none", marginBottom: 6, cursor: "pointer",
   } as React.CSSProperties,
   label: {
@@ -2199,29 +2948,29 @@ const S = {
   btnAccent: {
     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
     padding: "8px 16px", fontSize: 13, fontWeight: 600,
-    background: "#6366f1", color: "#fff", border: "none", borderRadius: 8,
+    background: "#6366f1", color: "#fff", border: "none", borderRadius: 999,
     cursor: "pointer", transition: "background 0.15s",
   } as React.CSSProperties,
   btnGhost: {
     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
     padding: "7px 14px", fontSize: 12, fontWeight: 500,
     background: "transparent", color: "var(--muted)", border: "1px solid var(--panel-border)",
-    borderRadius: 8, cursor: "pointer", flex: 1,
+    borderRadius: 999, cursor: "pointer", flex: 1,
   } as React.CSSProperties,
   btnDanger: {
     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
     padding: "7px 14px", fontSize: 12, fontWeight: 600,
     background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)",
-    borderRadius: 8, cursor: "pointer", flex: 1,
+    borderRadius: 999, cursor: "pointer", flex: 1,
   } as React.CSSProperties,
   addBtn: {
     width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center",
     background: "var(--accent-soft-bg)", color: "var(--accent-soft)", border: "1px solid var(--accent-soft-border)",
-    borderRadius: 6, cursor: "pointer",
+    borderRadius: 999, cursor: "pointer",
   } as React.CSSProperties,
   delBtn: {
     width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center",
-    background: "transparent", color: "var(--muted-2)", border: "none", borderRadius: 6,
+    background: "transparent", color: "var(--muted-2)", border: "none", borderRadius: 999,
     cursor: "pointer", flexShrink: 0, transition: "color 0.15s",
   } as React.CSSProperties,
 
@@ -2239,19 +2988,19 @@ const S = {
   listBtn: {
     display: "flex", alignItems: "center", gap: 8, width: "100%",
     padding: "7px 10px", fontSize: 13, color: "var(--text-dim)",
-    background: "transparent", border: "none", borderRadius: 6,
+    background: "transparent", border: "none", borderRadius: 999,
     cursor: "pointer", textAlign: "left" as const, transition: "background 0.1s",
   } as React.CSSProperties,
   dragItem: {
     display: "flex", alignItems: "center", gap: 8,
     padding: "8px 12px", fontSize: 13, fontWeight: 500,
     background: "var(--accent-soft-bg)", border: "1px dashed var(--accent-soft-border)",
-    borderRadius: 8, color: "var(--accent-soft)", cursor: "grab",
+    borderRadius: 999, color: "var(--accent-soft)", cursor: "grab",
   } as React.CSSProperties,
 
   /* ── Tabs ── */
   tabBar: {
-    display: "flex", gap: 0, marginTop: 14, borderRadius: 8, overflow: "hidden",
+    display: "flex", gap: 0, marginTop: 14, borderRadius: 999, overflow: "hidden",
     border: "1px solid var(--line)",
   } as React.CSSProperties,
   tabBtn: {
@@ -2284,7 +3033,7 @@ const S = {
     position: "absolute" as const, top: 12, right: 12,
     background: "none", border: "none", color: "var(--muted-2)", cursor: "pointer",
     width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-    borderRadius: 6,
+    borderRadius: 999,
   } as React.CSSProperties,
   codeShell: {
     border: "1px solid var(--panel-border)",
@@ -2319,7 +3068,7 @@ const S = {
   } as React.CSSProperties,
   codeCopyBtn: {
     padding: "4px 10px",
-    borderRadius: 6,
+    borderRadius: 999,
     border: "1px solid #334155",
     background: "#1f2937",
     color: "#e2e8f0",
@@ -2327,10 +3076,57 @@ const S = {
     fontWeight: 600,
     cursor: "pointer",
   } as React.CSSProperties,
+  modalActionCol: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    marginTop: 10,
+  } as React.CSSProperties,
+  modalBtnPrimary: {
+    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+    width: "100%",
+    padding: "9px 16px", fontSize: 13, fontWeight: 600,
+    background: "#6366f1", color: "#fff", border: "none", borderRadius: 999,
+    cursor: "pointer", transition: "background 0.15s",
+  } as React.CSSProperties,
+  modalBtnSecondary: {
+    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+    width: "100%",
+    padding: "8px 14px", fontSize: 12, fontWeight: 500,
+    background: "transparent", color: "var(--muted)", border: "1px solid var(--panel-border)",
+    borderRadius: 999, cursor: "pointer",
+  } as React.CSSProperties,
+  modalBtnDanger: {
+    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+    width: "100%",
+    padding: "8px 14px", fontSize: 12, fontWeight: 600,
+    background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)",
+    borderRadius: 999, cursor: "pointer",
+  } as React.CSSProperties,
+  permissionPreviewShell: {
+    border: "1px solid var(--line)",
+    borderRadius: 10,
+    overflow: "hidden",
+    marginTop: 8,
+    background: "var(--surface)",
+  } as React.CSSProperties,
+  permissionPreviewPre: {
+    margin: 0,
+    padding: "12px 14px",
+    minHeight: 80,
+    maxHeight: 180,
+    overflow: "auto",
+    whiteSpace: "pre",
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: "var(--text-dim)",
+    fontFamily: "var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace",
+    background: "linear-gradient(180deg, var(--surface) 0%, var(--accent-soft-bg) 100%)",
+  } as React.CSSProperties,
   switchRow: {
     width: "100%",
     border: "1px solid var(--panel-border)",
-    borderRadius: 10,
+    borderRadius: 999,
     padding: "8px 10px",
     marginBottom: 8,
     background: "var(--surface)",
