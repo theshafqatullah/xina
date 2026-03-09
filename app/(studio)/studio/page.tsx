@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import JSZip from "jszip";
 import { toast, Toaster } from "sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -41,17 +42,26 @@ import {
   Columns3,
   Moon,
   Sun,
+  Copy,
+  Download,
+  Shield,
+  Clock,
+  Power,
+  HardDrive,
+  Info,
 } from "lucide-react";
 
 /* ─── Types ─── */
 type AppwriteConfig = { endpoint: string; projectId: string; apiKey: string };
-type DatabaseT = { $id: string; name: string };
-type Collection = { $id: string; name: string; permissions?: string[]; $permissions?: string[] };
+type DatabaseT = { $id: string; name: string; enabled?: boolean; $createdAt?: string; $updatedAt?: string };
+type Collection = { $id: string; name: string; permissions?: string[]; $permissions?: string[]; enabled?: boolean; documentSecurity?: boolean; $createdAt?: string; $updatedAt?: string };
 type Attribute = {
   key: string;
   type: string;
   required?: boolean;
+  array?: boolean;
   size?: number;
+  format?: string;
   twoWay?: boolean;
   two_way?: boolean;
   twoWayKey?: string;
@@ -83,6 +93,7 @@ type ModalState =
   | { kind: "createIndex" }
   | { kind: "permissionRule" }
   | { kind: "typesPreview"; colId: string }
+  | { kind: "dbTypesPreview" }
   | { kind: "confirm"; title: string; message: string; onConfirm: () => void };
 
 type LanguageOpt = {
@@ -307,8 +318,18 @@ function pascalCase(input: string) {
     .join("") || "Model";
 }
 
+function camelCase(input: string): string {
+  return input
+    .replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase())
+    .replace(/^[A-Z]/, (c) => c.toLowerCase()) || input;
+}
+
 function safeFieldName(input: string) {
   return input.replace(/[^a-zA-Z0-9_]/g, "_").replace(/^\d/, "_$&");
+}
+
+function upperSnakeCase(input: string): string {
+  return input.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
 }
 
 function parseCreateDefault(attrType: AttrType, raw: string): unknown {
@@ -424,203 +445,565 @@ function extractRelationshipEdges(all: Record<string, Attribute[]>): Rel[] {
 function mapType(attrType: string, langId: string) {
   const map: Record<string, Record<string, string>> = {
     string: {
-      typescript: "string",
-      javascript: "string",
-      python: "str",
-      dart: "String",
-      go: "string",
-      php: "string",
-      ruby: "String",
-      kotlin: "String",
-      swift: "String",
-      java: "String",
-      csharp: "string",
+      typescript: "string", javascript: "string", python: "str", dart: "String",
+      go: "string", php: "string", ruby: "String", kotlin: "String",
+      swift: "String", java: "String", csharp: "string",
     },
     integer: {
-      typescript: "number",
-      javascript: "number",
-      python: "int",
-      dart: "int",
-      go: "int",
-      php: "int",
-      ruby: "Integer",
-      kotlin: "Int",
-      swift: "Int",
-      java: "int",
-      csharp: "int",
+      typescript: "number", javascript: "number", python: "int", dart: "int",
+      go: "int", php: "int", ruby: "Integer", kotlin: "Int",
+      swift: "Int", java: "int", csharp: "int",
     },
     float: {
-      typescript: "number",
-      javascript: "number",
-      python: "float",
-      dart: "double",
-      go: "float64",
-      php: "float",
-      ruby: "Float",
-      kotlin: "Double",
-      swift: "Double",
-      java: "double",
-      csharp: "double",
+      typescript: "number", javascript: "number", python: "float", dart: "double",
+      go: "float64", php: "float", ruby: "Float", kotlin: "Double",
+      swift: "Double", java: "double", csharp: "double",
     },
     boolean: {
-      typescript: "boolean",
-      javascript: "boolean",
-      python: "bool",
-      dart: "bool",
-      go: "bool",
-      php: "bool",
-      ruby: "Boolean",
-      kotlin: "Boolean",
-      swift: "Bool",
-      java: "boolean",
-      csharp: "bool",
+      typescript: "boolean", javascript: "boolean", python: "bool", dart: "bool",
+      go: "bool", php: "bool", ruby: "Boolean", kotlin: "Boolean",
+      swift: "Bool", java: "boolean", csharp: "bool",
     },
     datetime: {
-      typescript: "string",
-      javascript: "string",
-      python: "str",
-      dart: "DateTime",
-      go: "time.Time",
-      php: "string",
-      ruby: "String",
-      kotlin: "String",
-      swift: "String",
-      java: "String",
-      csharp: "string",
+      typescript: "string", javascript: "string", python: "str", dart: "String",
+      go: "string", php: "string", ruby: "String", kotlin: "String",
+      swift: "String", java: "String", csharp: "string",
+    },
+    email: {
+      typescript: "string", javascript: "string", python: "str", dart: "String",
+      go: "string", php: "string", ruby: "String", kotlin: "String",
+      swift: "String", java: "String", csharp: "string",
+    },
+    url: {
+      typescript: "string", javascript: "string", python: "str", dart: "String",
+      go: "string", php: "string", ruby: "String", kotlin: "String",
+      swift: "String", java: "String", csharp: "string",
+    },
+    ip: {
+      typescript: "string", javascript: "string", python: "str", dart: "String",
+      go: "string", php: "string", ruby: "String", kotlin: "String",
+      swift: "String", java: "String", csharp: "string",
     },
     enum: {
-      typescript: "string",
-      javascript: "string",
-      python: "str",
-      dart: "String",
-      go: "string",
-      php: "string",
-      ruby: "String",
-      kotlin: "String",
-      swift: "String",
-      java: "String",
-      csharp: "string",
+      typescript: "string", javascript: "string", python: "str", dart: "String",
+      go: "string", php: "string", ruby: "String", kotlin: "String",
+      swift: "String", java: "String", csharp: "string",
     },
     relationship: {
-      typescript: "string",
-      javascript: "string",
-      python: "str",
-      dart: "String",
-      go: "string",
-      php: "string",
-      ruby: "String",
-      kotlin: "String",
-      swift: "String",
-      java: "String",
-      csharp: "string",
+      typescript: "string", javascript: "string", python: "str", dart: "String",
+      go: "string", php: "string", ruby: "String", kotlin: "String",
+      swift: "String", java: "String", csharp: "string",
     },
   };
-
   const fallback = map.string[langId] ?? "string";
   return map[attrType]?.[langId] ?? fallback;
 }
 
+/* ─── Helpers for CLI-matching type generation ─── */
+interface FieldInfo {
+  key: string;            // original attribute key (snake_case)
+  camel: string;          // camelCase field name
+  type: string;           // mapped base type for the language
+  required: boolean;
+  isArray: boolean;
+  isEnum: boolean;
+  enumName: string;       // PascalCase name for enum
+  elements: string[];     // enum values
+}
+
+function buildFieldInfos(attrs: Attribute[], langId: string): FieldInfo[] {
+  return attrs.map((a) => {
+    const isEnum = a.type === "enum" && Array.isArray(a.elements) && a.elements.length > 0;
+    return {
+      key: a.key,
+      camel: camelCase(a.key),
+      type: mapType(a.type, langId),
+      required: !!a.required,
+      isArray: !!a.array,
+      isEnum,
+      enumName: isEnum ? pascalCase(a.key) : "",
+      elements: isEnum ? a.elements! : [],
+    };
+  });
+}
+
+/* ─── Per-language code generators matching Appwrite CLI output ─── */
+
+function genTypeScript(className: string, fields: FieldInfo[]): string {
+  const parts: string[] = [`import { type Models } from 'appwrite';`];
+  // Enums
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    const members = f.elements.map((e) => `  ${upperSnakeCase(e)} = "${e}",`).join("\n");
+    parts.push(`\nexport enum ${f.enumName} {\n${members}\n}`);
+  }
+  // Type
+  const body = fields.map((f) => {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `${t}[]`;
+    if (!f.required) t += " | null";
+    return `  ${f.camel}: ${t};`;
+  }).join("\n");
+  parts.push(`\nexport type ${className} = Models.Document & {\n${body || "  // no attributes"}\n}`);
+  return parts.join("\n");
+}
+
+function genJavaScript(className: string, fields: FieldInfo[]): string {
+  const parts: string[] = [
+    `/**\n * @typedef {import('appwrite').Models.Document} Document\n */`,
+  ];
+  const props = fields.map((f) => {
+    let t: string;
+    if (f.isEnum) {
+      t = f.elements.map((e) => `"${e}"`).join("|");
+    } else {
+      t = f.type;
+    }
+    if (f.isArray) t = `${t}[]`;
+    if (!f.required) t += "|null|undefined";
+    return ` * @property {${t}} ${f.camel}`;
+  }).join("\n");
+  parts.push(`\n/**\n * @typedef {Object} ${className}\n${props || " * no attributes"}\n */`);
+  return parts.join("\n");
+}
+
+function genJava(className: string, fields: FieldInfo[]): string {
+  const lines: string[] = [`package io.appwrite.models;`, ``, `import java.util.*;`, `public class ${className} {`];
+  // Inner enums
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    const vals = f.elements.map((e) => `        ${e}`).join(",\n");
+    lines.push(``, `    public enum ${f.enumName} {\n${vals};\n    }`);
+  }
+  lines.push(``);
+  // Private fields
+  for (const f of fields) {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `List<${t === "int" ? "Integer" : t === "double" ? "Double" : t === "boolean" ? "Boolean" : t}>`;
+    lines.push(`    private ${t} ${f.camel};`);
+  }
+  // Empty constructor
+  lines.push(``, `    public ${className}() {`, `    }`);
+  // Full constructor
+  if (fields.length > 0) {
+    const params = fields.map((f) => {
+      let t = f.isEnum ? f.enumName : f.type;
+      if (f.isArray) t = `List<${t === "int" ? "Integer" : t === "double" ? "Double" : t === "boolean" ? "Boolean" : t}>`;
+      return `        ${t} ${f.camel}`;
+    }).join(",\n");
+    const assigns = fields.map((f) => `        this.${f.camel} = ${f.camel};`).join("\n");
+    lines.push(``, `    public ${className}(\n${params}\n    ) {\n${assigns}\n    }`);
+  }
+  // Getters / setters
+  for (const f of fields) {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `List<${t === "int" ? "Integer" : t === "double" ? "Double" : t === "boolean" ? "Boolean" : t}>`;
+    const cap = f.camel.charAt(0).toUpperCase() + f.camel.slice(1);
+    const getter = f.type === "boolean" && !f.isArray ? `get${cap}` : `get${cap}`;
+    lines.push(``);
+    lines.push(`    public ${t} ${getter}() {`);
+    lines.push(`        return ${f.camel};`);
+    lines.push(`    }`);
+    lines.push(``);
+    lines.push(`    public void set${cap}(${t} ${f.camel}) {`);
+    lines.push(`        this.${f.camel} = ${f.camel};`);
+    lines.push(`    }`);
+  }
+  // equals
+  if (fields.length > 0) {
+    const conds = fields.map((f) => `              Objects.equals(${f.camel}, that.${f.camel})`).join(" &&\n");
+    lines.push(``);
+    lines.push(`    @Override`);
+    lines.push(`    public boolean equals(Object obj) {`);
+    lines.push(`        if (this == obj) return true;`);
+    lines.push(`        if (obj == null || getClass() != obj.getClass()) return false;`);
+    lines.push(`        ${className} that = (${className}) obj;`);
+    lines.push(`        return ${conds};`);
+    lines.push(`    }`);
+    // hashCode
+    const hashArgs = fields.map((f) => f.camel).join(", ");
+    lines.push(``);
+    lines.push(`    @Override`);
+    lines.push(`    public int hashCode() {`);
+    lines.push(`        return Objects.hash(${hashArgs});`);
+    lines.push(`    }`);
+    // toString
+    const toStrBody = fields.map((f) => `                "${f.camel}=" + ${f.camel}`).join(" +\n");
+    lines.push(``);
+    lines.push(`    @Override`);
+    lines.push(`    public String toString() {`);
+    lines.push(`        return "${className}{" +`);
+    lines.push(`${toStrBody} +`);
+    lines.push(`                '}';`);
+    lines.push(`    }`);
+  }
+  lines.push(`}`);
+  return lines.join("\n");
+}
+
+function genPHP(className: string, fields: FieldInfo[]): string {
+  const lines: string[] = [`<?php`, `namespace Appwrite\\Models;`];
+  // Top-level enums
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    const cases = f.elements.map((e) => `  case ${upperSnakeCase(e)} = '${e}';`).join("\n");
+    lines.push(``, `enum ${f.enumName}: string {\n${cases}\n}`);
+  }
+  // Class
+  lines.push(``, `class ${className} {`);
+  for (const f of fields) {
+    let t = f.isEnum ? f.enumName : (f.type === "int" || f.type === "float" ? f.type : (f.type === "bool" ? "bool" : "string"));
+    if (f.isArray) t = "array";
+    if (!f.required) t += "|null";
+    lines.push(`  private ${t} $${f.camel};`);
+  }
+  // Constructor
+  if (fields.length > 0) {
+    const params = fields.map((f) => {
+      let t = f.isEnum ? f.enumName : (f.type === "int" || f.type === "float" ? f.type : (f.type === "bool" ? "bool" : "string"));
+      if (f.isArray) t = "array";
+      if (!f.required) return `    ?${t} $${f.camel} = null`;
+      return `    ${t} $${f.camel}`;
+    }).join(",\n");
+    const assigns = fields.map((f) => `    $this->${f.camel} = $${f.camel};`).join("\n");
+    lines.push(``, `  public function __construct(\n${params}\n  ) {\n${assigns}\n  }`);
+  }
+  // Getters / setters
+  for (const f of fields) {
+    let t = f.isEnum ? f.enumName : (f.type === "int" || f.type === "float" ? f.type : (f.type === "bool" ? "bool" : "string"));
+    if (f.isArray) t = "array";
+    const retType = !f.required ? `${t}|null` : t;
+    const cap = f.camel.charAt(0).toUpperCase() + f.camel.slice(1);
+    lines.push(`  public function get${cap}(): ${retType} {`);
+    lines.push(`    return $this->${f.camel};`);
+    lines.push(`  }`);
+    lines.push(``);
+    lines.push(`  public function set${cap}(${retType} $${f.camel}): void {`);
+    lines.push(`    $this->${f.camel} = $${f.camel};`);
+    lines.push(`  }`);
+  }
+  lines.push(`}`);
+  return lines.join("\n");
+}
+
+function genDart(className: string, fields: FieldInfo[]): string {
+  const lines: string[] = [];
+  // Enums
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    const vals = f.elements.map((e) => `  ${e},`).join("\n");
+    lines.push(`enum ${f.enumName} {\n${vals}\n}\n`);
+  }
+  // Class
+  lines.push(`class ${className} {`);
+  for (const f of fields) {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `List<${t}>`;
+    if (!f.required) t += "?";
+    lines.push(`  ${t} ${f.camel};`);
+  }
+  // Named constructor
+  const ctorParams = fields.map((f) => {
+    return f.required ? `    required this.${f.camel},` : `    this.${f.camel},`;
+  }).join("\n");
+  lines.push(``, `  ${className}({\n${ctorParams}\n  });`);
+  // fromMap
+  const fromMapArgs = fields.map((f) => {
+    if (f.isEnum) {
+      return f.required
+        ? `      ${f.camel}: ${f.enumName}.values.where((e) => e.name == map['${f.key}']).first,`
+        : `      ${f.camel}: map['${f.key}'] != null ? ${f.enumName}.values.where((e) => e.name == map['${f.key}']).firstOrNull : null,`;
+    }
+    if (f.isArray) {
+      return `      ${f.camel}: List<${f.type}>.from(map['${f.key}'] ?? []),`;
+    }
+    if (f.type === "String") {
+      return f.required
+        ? `      ${f.camel}: map['${f.key}'].toString(),`
+        : `      ${f.camel}: map['${f.key}']?.toString(),`;
+    }
+    return `      ${f.camel}: map['${f.key}'],`;
+  }).join("\n");
+  lines.push(``, `  factory ${className}.fromMap(Map<String, dynamic> map) {`);
+  lines.push(`    return ${className}(\n${fromMapArgs}\n    );`);
+  lines.push(`  }`);
+  // toMap
+  const toMapEntries = fields.map((f) => {
+    if (f.isEnum) return `      "${f.key}": ${f.camel}?.name,`;
+    return `      "${f.key}": ${f.camel},`;
+  }).join("\n");
+  lines.push(``, `  Map<String, dynamic> toMap() {`);
+  lines.push(`    return {\n${toMapEntries}\n    };`);
+  lines.push(`  }`);
+  lines.push(`}`);
+  return lines.join("\n");
+}
+
+function genKotlin(className: string, fields: FieldInfo[]): string {
+  const lines: string[] = [`package io.appwrite.models`];
+  // Enums
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    const vals = f.elements.map((e) => `    ${e}`).join(",\n");
+    lines.push(``, `enum class ${f.enumName} {\n${vals}\n}`);
+  }
+  // Data class
+  const props = fields.map((f) => {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `List<${t}>`;
+    if (!f.required) t += "?";
+    return `    val ${f.camel}: ${t}`;
+  }).join(",\n");
+  lines.push(``, `data class ${className}(\n${props || "    // no attributes"}\n)`);
+  return lines.join("\n");
+}
+
+function genSwift(className: string, fields: FieldInfo[]): string {
+  const lines: string[] = [`import Foundation`];
+  // Enums
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    const cases = f.elements.map((e) => `  case ${e} = "${e}"`).join("\n");
+    lines.push(``, `public enum ${f.enumName}: String, Codable, CaseIterable {\n${cases}\n}`);
+  }
+  // Class
+  lines.push(``, `public class ${className}: Codable {`);
+  for (const f of fields) {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `[${t}]`;
+    if (!f.required) t += "?";
+    lines.push(`    public let ${f.camel}: ${t}`);
+  }
+  // CodingKeys
+  const codingKeys = fields.map((f) => `        case ${f.camel} = "${f.key}"`).join("\n");
+  lines.push(``, `    enum CodingKeys: String, CodingKey {\n${codingKeys}\n    }`);
+  // init
+  const initParams = fields.map((f) => {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `[${t}]`;
+    if (!f.required) t += "?";
+    return `        ${f.camel}: ${t}`;
+  }).join(",\n");
+  const initAssigns = fields.map((f) => `        self.${f.camel} = ${f.camel}`).join("\n");
+  lines.push(``, `    init(\n${initParams}\n    ) {\n${initAssigns}\n    }`);
+  // Decodable init
+  const decodeBody = fields.map((f) => {
+    const method = f.required ? "decode" : "decodeIfPresent";
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `[${t}]`;
+    return `        self.${f.camel} = try container.${method}(${t}.self, forKey: .${f.camel})`;
+  }).join("\n");
+  lines.push(``, `    public required init(from decoder: Decoder) throws {`);
+  lines.push(`        let container = try decoder.container(keyedBy: CodingKeys.self)`);
+  lines.push(``, `${decodeBody}`);
+  lines.push(`    }`);
+  // Encodable
+  const encodeBody = fields.map((f) => {
+    const method = f.required ? "encode" : "encodeIfPresent";
+    return `        try container.${method}(${f.camel}, forKey: .${f.camel})`;
+  }).join("\n");
+  lines.push(``, `    public func encode(to encoder: Encoder) throws {`);
+  lines.push(`        var container = encoder.container(keyedBy: CodingKeys.self)`);
+  lines.push(``, `${encodeBody}`);
+  lines.push(`    }`);
+  // toMap
+  const mapEntries = fields.map((f) => `            "${f.key}": ${f.camel} as Any`).join(",\n");
+  lines.push(``, `    public func toMap() -> [String: Any] {`);
+  lines.push(`        return [\n${mapEntries}\n        ]`);
+  lines.push(`    }`);
+  // from(map:)
+  const fromEntries = fields.map((f) => {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `[${t}]`;
+    const cast = f.required ? `as! ${t}` : `as? ${t}`;
+    return `            ${f.camel}: map["${f.key}"] ${cast}`;
+  }).join(",\n");
+  lines.push(``, `    public static func from(map: [String: Any]) -> ${className} {`);
+  lines.push(`        return ${className}(\n${fromEntries}\n        )`);
+  lines.push(`    }`);
+  lines.push(`}`);
+  return lines.join("\n");
+}
+
+function genPython(className: string, fields: FieldInfo[]): string {
+  const lines: string[] = [`from dataclasses import dataclass`];
+  // Enums
+  const hasEnums = fields.some((f) => f.isEnum);
+  if (hasEnums) lines.push(`from enum import Enum`);
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    const vals = f.elements.map((e) => `    ${upperSnakeCase(e)} = "${e}"`).join("\n");
+    lines.push(``, `class ${f.enumName}(Enum):\n${vals}`);
+  }
+  lines.push(``, `@dataclass`, `class ${className}:`);
+  if (fields.length === 0) {
+    lines.push(`    pass`);
+  } else {
+    // Required fields first, then optional
+    const req = fields.filter((f) => f.required);
+    const opt = fields.filter((f) => !f.required);
+    for (const f of [...req, ...opt]) {
+      let t = f.isEnum ? f.enumName : f.type;
+      if (f.isArray) t = `list[${t}]`;
+      if (!f.required) t += " | None";
+      lines.push(`    ${f.camel}: ${t}${f.required ? "" : " = None"}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function genGo(className: string, fields: FieldInfo[]): string {
+  const lines: string[] = [];
+  // Enums as type + const
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    lines.push(`type ${f.enumName} string`, ``);
+    lines.push(`const (`);
+    for (const e of f.elements) {
+      lines.push(`\t${f.enumName}${pascalCase(e)} ${f.enumName} = "${e}"`);
+    }
+    lines.push(`)`, ``);
+  }
+  // Struct
+  lines.push(`type ${className} struct {`);
+  for (const f of fields) {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `[]${t}`;
+    if (!f.required) t = `*${t}`;
+    lines.push(`\t${pascalCase(f.camel)} ${t} \`json:"${f.key}"\``);
+  }
+  lines.push(`}`);
+  return lines.join("\n");
+}
+
+function genRuby(className: string, fields: FieldInfo[]): string {
+  const lines: string[] = [];
+  // Module with enums as constants
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    for (const e of f.elements) {
+      lines.push(`${upperSnakeCase(f.camel)}_${upperSnakeCase(e)} = '${e}'.freeze`);
+    }
+    lines.push(``);
+  }
+  lines.push(`class ${className}`);
+  if (fields.length > 0) {
+    lines.push(`  attr_accessor ${fields.map((f) => `:${f.camel}`).join(", ")}`);
+    // initialize
+    const params = fields.map((f) => `${f.camel}:${f.required ? "" : " nil"}`).join(", ");
+    const assigns = fields.map((f) => `    @${f.camel} = ${f.camel}`).join("\n");
+    lines.push(``, `  def initialize(${params})`);
+    lines.push(assigns);
+    lines.push(`  end`);
+  }
+  lines.push(`end`);
+  return lines.join("\n");
+}
+
+function genCSharp(className: string, fields: FieldInfo[]): string {
+  const lines: string[] = [];
+  // Enums
+  for (const f of fields) {
+    if (!f.isEnum) continue;
+    const vals = f.elements.map((e) => `    ${pascalCase(e)}`).join(",\n");
+    lines.push(`public enum ${f.enumName}\n{\n${vals}\n}\n`);
+  }
+  lines.push(`public class ${className}`);
+  lines.push(`{`);
+  for (const f of fields) {
+    let t = f.isEnum ? f.enumName : f.type;
+    if (f.isArray) t = `List<${t}>`;
+    const nullable = !f.required ? "?" : "";
+    lines.push(`    public ${t}${nullable} ${pascalCase(f.camel)} { get; set; }`);
+  }
+  lines.push(`}`);
+  return lines.join("\n");
+}
+
 function generateTypeCode(collection: Collection, attrs: Attribute[], langId: string) {
   const className = pascalCase(collection.name || collection.$id);
-  const fields = attrs.map((a) => ({ name: safeFieldName(a.key), type: mapType(a.type, langId), required: !!a.required }));
+  const fields = buildFieldInfos(attrs, langId);
 
+  switch (langId) {
+    case "typescript": return genTypeScript(className, fields);
+    case "javascript": return genJavaScript(className, fields);
+    case "java":       return genJava(className, fields);
+    case "php":        return genPHP(className, fields);
+    case "dart":       return genDart(className, fields);
+    case "kotlin":     return genKotlin(className, fields);
+    case "swift":      return genSwift(className, fields);
+    case "python":     return genPython(className, fields);
+    case "go":         return genGo(className, fields);
+    case "ruby":       return genRuby(className, fields);
+    case "csharp":     return genCSharp(className, fields);
+    default:           return "// Unsupported language";
+  }
+}
+
+function generateDbTypeCode(db: DatabaseT, colList: Collection[], allAttrsMap: Record<string, Attribute[]>, langId: string): string {
+  if (colList.length === 0) return `// No collections in database "${db.name}"`;
+
+  // For multi-collection files, generate each collection's code then deduplicate imports
+  const parts: string[] = [];
+  for (const col of colList) {
+    const attrs = allAttrsMap[col.$id] ?? [];
+    parts.push(generateTypeCode(col, attrs, langId));
+  }
+
+  let combined = parts.join("\n\n");
+
+  // Deduplicate repeated imports/headers for combined output
   if (langId === "typescript") {
-    const body = fields.map((f) => `  ${f.name}${f.required ? "" : "?"}: ${f.type};`).join("\n");
-    return `import { type Models } from "appwrite";
+    const importLine = `import { type Models } from 'appwrite';`;
+    const count = (combined.match(new RegExp(importLine.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) ?? []).length;
+    if (count > 1) {
+      combined = importLine + "\n" + combined.replaceAll(importLine + "\n", "").replaceAll(importLine, "");
+    }
+  } else if (langId === "javascript") {
+    const docImport = `/**\n * @typedef {import('appwrite').Models.Document} Document\n */`;
+    const count = (combined.match(/\@typedef \{import\('appwrite'\)\.Models\.Document\}/g) ?? []).length;
+    if (count > 1) {
+      combined = docImport + "\n" + combined.replaceAll(docImport + "\n", "").replaceAll(docImport, "");
+    }
+  } else if (langId === "php") {
+    const nsLine = `namespace Appwrite\\Models;`;
+    const phpTag = `<?php`;
+    combined = combined.replaceAll(phpTag + "\n", "").replaceAll(phpTag, "");
+    combined = combined.replaceAll(nsLine + "\n", "").replaceAll(nsLine, "");
+    combined = `<?php\n${nsLine}\n\n` + combined.trim();
+  } else if (langId === "java") {
+    const pkgLine = `package io.appwrite.models;`;
+    const impLine = `import java.util.*;`;
+    combined = combined.replaceAll(pkgLine + "\n", "").replaceAll(pkgLine, "");
+    combined = combined.replaceAll(impLine + "\n", "").replaceAll(impLine, "");
+    combined = `${pkgLine}\n\n${impLine}\n\n` + combined.trim();
+  } else if (langId === "kotlin") {
+    const pkgLine = `package io.appwrite.models`;
+    combined = combined.replaceAll(pkgLine + "\n", "").replaceAll(pkgLine, "");
+    combined = `${pkgLine}\n\n` + combined.trim();
+  } else if (langId === "swift") {
+    const impLine = `import Foundation`;
+    combined = combined.replaceAll(impLine + "\n", "").replaceAll(impLine, "");
+    combined = `${impLine}\n\n` + combined.trim();
+  } else if (langId === "python") {
+    const dcImport = `from dataclasses import dataclass`;
+    const enumImport = `from enum import Enum`;
+    combined = combined.replaceAll(dcImport + "\n", "").replaceAll(dcImport, "");
+    combined = combined.replaceAll(enumImport + "\n", "").replaceAll(enumImport, "");
+    const hasEnum = combined.includes("class ") && combined.includes("(Enum):");
+    combined = `${dcImport}\n${hasEnum ? enumImport + "\n" : ""}\n` + combined.trim();
+  }
 
-// Appwrite docs style: extend Models.Row for table row types
-export interface ${className} extends Models.Row {
-${body || "  // no custom attributes yet"}
+  return combined;
 }
 
-// Example usage
-// const rows = await tablesDB.listRows<${className}>({
-//   databaseId: "<DATABASE_ID>",
-//   tableId: "<TABLE_ID>",
-// });`;
-  }
-
-  if (langId === "javascript") {
-    const body = fields.map((f) => ` * @property {${f.type}} ${f.name}`).join("\n");
-    return `/**
- * @typedef {Object} ${className}
-${body || " * no custom attributes yet"}
- */
-
-// Example usage (Web SDK)
-// const rows = await tablesDB.listRows({
-//   databaseId: "<DATABASE_ID>",
-//   tableId: "<TABLE_ID>",
-// });`;
-  }
-
-  if (langId === "python") {
-    const body = fields.map((f) => `    ${f.name}: ${f.type}${f.required ? "" : " | None = None"}`).join("\n");
-    return `from dataclasses import dataclass\n\n@dataclass\nclass ${className}:\n${body || "    pass"}`;
-  }
-
-  if (langId === "dart") {
-    const body = fields.map((f) => `  final ${f.type}${f.required ? "" : "?"} ${f.name};`).join("\n");
-    const ctor = fields.length
-      ? `  const ${className}({\n${fields.map((f) => `    ${f.required ? "required " : ""}this.${f.name},`).join("\n")}\n  });`
-      : `  const ${className}();`;
-    return `class ${className} {\n${body || "  // no custom attributes yet"}\n\n${ctor}\n}`;
-  }
-
-  if (langId === "go") {
-    const body = fields.map((f) => `\t${pascalCase(f.name)} ${f.type} \`json:"${f.name}"\``).join("\n");
-    return `type ${className} struct {\n${body || "\t// no custom attributes yet"}\n}`;
-  }
-
-  if (langId === "php") {
-    const body = fields.map((f) => `    public ${f.type} $${f.name};`).join("\n");
-    return `class ${className} {\n${body || "    // no custom attributes yet"}\n}`;
-  }
-
-  if (langId === "ruby") {
-    const body = fields.map((f) => `  attr_accessor :${f.name}`).join("\n");
-    return `class ${className}\n${body || "  # no custom attributes yet"}\nend`;
-  }
-
-  if (langId === "kotlin") {
-    const body = fields.map((f) => `    val ${f.name}: ${f.type}${f.required ? "" : "?"}`).join(",\n");
-    return `data class ${className}(
-${body || "    // no custom attributes yet"}
-)
-
-// Appwrite docs style: nestedType for type-safe responses
-// val rows = tablesDB.listRows(
-//   databaseId = "<DATABASE_ID>",
-//   tableId = "<TABLE_ID>",
-//   nestedType = ${className}::class.java
-// )`;
-  }
-
-  if (langId === "swift") {
-    const body = fields.map((f) => `    let ${f.name}: ${f.type}${f.required ? "" : "?"}`).join("\n");
-    return `struct ${className}: Codable {
-${body || "    // no custom attributes yet"}
-}
-
-// Appwrite docs style: nestedType for type-safe responses
-// let rows = try await tablesDB.listRows(
-//   databaseId: "<DATABASE_ID>",
-//   tableId: "<TABLE_ID>",
-//   nestedType: ${className}.self
-// )`;
-  }
-
-  if (langId === "java") {
-    const body = fields.map((f) => `    public ${f.type} ${f.name};`).join("\n");
-    return `public class ${className} {\n${body || "    // no custom attributes yet"}\n}`;
-  }
-
-  if (langId === "csharp") {
-    const body = fields.map((f) => `    public ${f.type}${f.required ? "" : "?"} ${pascalCase(f.name)} { get; set; }`).join("\n");
-    return `public class ${className}\n{\n${body || "    // no custom attributes yet"}\n}`;
-  }
-
-  return "// Unsupported language";
+function generateDbTypeFiles(db: DatabaseT, colList: Collection[], allAttrsMap: Record<string, Attribute[]>, langId: string): { name: string; content: string }[] {
+  const lang = TYPE_LANGS.find(l => l.id === langId) ?? TYPE_LANGS[0];
+  return colList.map(col => {
+    const attrs = allAttrsMap[col.$id] ?? [];
+    const code = generateTypeCode(col, attrs, langId);
+    return { name: `${pascalCase(col.name || col.$id)}.${lang.ext}`, content: code };
+  });
 }
 
 /* ─── Appwrite system attributes ─── */
@@ -655,6 +1038,10 @@ function normalizeCollection(raw: any): Collection {
         ? raw.$permissions
         : [],
     $permissions: Array.isArray(raw?.$permissions) ? raw.$permissions : undefined,
+    enabled: raw?.enabled,
+    documentSecurity: raw?.documentSecurity ?? raw?.document_security,
+    $createdAt: raw?.$createdAt,
+    $updatedAt: raw?.$updatedAt,
   };
 }
 
@@ -1189,6 +1576,69 @@ export default function StudioPage() {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  const doToggleDbEnabled = async () => {
+    if (!selDb) return;
+    const next = !selDb.enabled;
+    try {
+      await api("updateDatabase", { databaseId: selDb.$id, name: selDb.name, enabled: next });
+      setSelDb(p => p ? { ...p, enabled: next } : p);
+      setDatabases(prev => prev.map(db => db.$id === selDb.$id ? { ...db, enabled: next } : db));
+      toast.success(next ? "Database enabled" : "Database disabled");
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const doExportDbSchema = async () => {
+    if (!selDb) return;
+    try {
+      const colsData = await api("listCollections", { databaseId: selDb.$id });
+      const colList = colsData?.collections ?? [];
+      const schema: any = { database: { id: selDb.$id, name: selDb.name, enabled: selDb.enabled }, collections: [] };
+      for (const col of colList) {
+        const attrsData = await api("listAttributes", { databaseId: selDb.$id, collectionId: col.$id });
+        const idxData = await api("listIndexes", { databaseId: selDb.$id, collectionId: col.$id });
+        schema.collections.push({
+          id: col.$id, name: col.name,
+          attributes: attrsData?.attributes ?? [],
+          indexes: idxData?.indexes ?? [],
+        });
+      }
+      const blob = new Blob([JSON.stringify(schema, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${selDb.name}-schema.json`; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Schema exported");
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const [backupPolicies, setBackupPolicies] = useState<Record<string, { schedule: string; retention: number; lastBackup?: string }>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem("xina_backup_policies") || "{}"); } catch { return {}; }
+  });
+  const saveBackupPolicy = (dbId: string, schedule: string, retention: number) => {
+    setBackupPolicies(prev => {
+      const next = { ...prev, [dbId]: { ...prev[dbId], schedule, retention } };
+      localStorage.setItem("xina_backup_policies", JSON.stringify(next));
+      return next;
+    });
+    toast.success("Backup policy saved");
+  };
+  const doRunBackup = async () => {
+    if (!selDb) return;
+    await doExportDbSchema();
+    setBackupPolicies(prev => {
+      const next = { ...prev, [selDb.$id]: { ...prev[selDb.$id], schedule: prev[selDb.$id]?.schedule || "manual", retention: prev[selDb.$id]?.retention || 5, lastBackup: new Date().toISOString() } };
+      localStorage.setItem("xina_backup_policies", JSON.stringify(next));
+      return next;
+    });
+  };
+  const copyId = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied to clipboard");
+    } catch { toast.error("Failed to copy"); }
+  };
+
   const doSaveColName = async () => {
     if (!selDb || !selCol) return;
     try {
@@ -1197,6 +1647,28 @@ export default function StudioPage() {
       setNodes(prev => prev[selCol.$id] ? { ...prev, [selCol.$id]: { ...prev[selCol.$id], label: editName } } : prev);
       toast.success("Collection renamed");
       await refreshSchemaSilent();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const doToggleColEnabled = async () => {
+    if (!selDb || !selCol) return;
+    const next = !selCol.enabled;
+    try {
+      await api("updateCollection", { databaseId: selDb.$id, collectionId: selCol.$id, enabled: next });
+      setSelCol(p => p ? { ...p, enabled: next } : p);
+      setCollections(prev => prev.map(c => c.$id === selCol.$id ? { ...c, enabled: next } : c));
+      toast.success(next ? "Collection enabled" : "Collection disabled");
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const doToggleDocSecurity = async () => {
+    if (!selDb || !selCol) return;
+    const next = !selCol.documentSecurity;
+    try {
+      await api("updateCollection", { databaseId: selDb.$id, collectionId: selCol.$id, documentSecurity: next });
+      setSelCol(p => p ? { ...p, documentSecurity: next } : p);
+      setCollections(prev => prev.map(c => c.$id === selCol.$id ? { ...c, documentSecurity: next } : c));
+      toast.success(next ? "Document security enabled" : "Document security disabled");
     } catch (e: any) { toast.error(e.message); }
   };
 
@@ -1772,7 +2244,7 @@ export default function StudioPage() {
               transition={{ duration: 0.15 }}
               style={{
                 ...S.modal,
-                ...(modal.kind === "typesPreview" ? S.modalWide : {}),
+                ...(modal.kind === "typesPreview" || modal.kind === "dbTypesPreview" ? S.modalWide : {}),
                 ...(modal.kind === "permissionRule" ? { width: 520 } : {}),
               }}
               onClick={e => e.stopPropagation()}
@@ -2005,6 +2477,107 @@ export default function StudioPage() {
                         </div>
                       </div>
                       <pre style={S.codePre}>{code}</pre>
+                    </div>
+                  </>
+                );
+              })()}
+
+              {modal.kind === "dbTypesPreview" && (() => {
+                const langId = mf.typesLang ?? "typescript";
+                const lang = TYPE_LANGS.find((l) => l.id === langId) ?? TYPE_LANGS[0];
+                const mode = mf.dbTypesMode ?? "single";
+                const singleCode = selDb ? generateDbTypeCode(selDb, collections, allAttrs, lang.id) : "// No database selected";
+                const files = selDb ? generateDbTypeFiles(selDb, collections, allAttrs, lang.id) : [];
+
+                const doDownloadSingle = () => {
+                  if (!selDb) return;
+                  const blob = new Blob([singleCode], { type: "text/plain" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url; a.download = `${selDb.name}-types.${lang.ext}`; a.click();
+                  URL.revokeObjectURL(url);
+                  toast.success("File downloaded");
+                };
+
+                const doDownloadZip = async () => {
+                  if (!selDb || files.length === 0) return;
+                  const zip = new JSZip();
+                  const folder = zip.folder(selDb.name) ?? zip;
+                  for (const f of files) folder.file(f.name, f.content);
+                  const blob = await zip.generateAsync({ type: "blob" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url; a.download = `${selDb.name}-types.zip`; a.click();
+                  URL.revokeObjectURL(url);
+                  toast.success("Zip downloaded");
+                };
+
+                return (
+                  <>
+                    <p style={S.modalH}>Database Types</p>
+                    <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }}>
+                      {selDb?.name ?? "Database"} — {collections.length} collection{collections.length !== 1 ? "s" : ""}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+                      <label style={{ ...S.label, marginBottom: 0 }}>Language</label>
+                      <select
+                        style={{ ...S.select, marginBottom: 0, width: 180 }}
+                        value={lang.id}
+                        onChange={(e) => setMf((prev) => ({ ...prev, typesLang: e.target.value }))}
+                      >
+                        {TYPE_LANGS.map((l) => (
+                          <option key={l.id} value={l.id}>{l.label}</option>
+                        ))}
+                      </select>
+                      <label style={{ ...S.label, marginBottom: 0, marginLeft: 8 }}>Output</label>
+                      <select
+                        style={{ ...S.select, marginBottom: 0, width: 160 }}
+                        value={mode}
+                        onChange={(e) => setMf((prev) => ({ ...prev, dbTypesMode: e.target.value }))}
+                      >
+                        <option value="single">Single file</option>
+                        <option value="multi">File per collection</option>
+                      </select>
+                    </div>
+
+                    {mode === "single" ? (
+                      <div style={S.codeShell}>
+                        <div style={S.codeHeader}>
+                          <span>{selDb ? `${selDb.name}-types.${lang.ext}` : `types.${lang.ext}`}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span>{collections.length} collections</span>
+                            <button onClick={() => copyText(singleCode)} style={S.codeCopyBtn}>Copy</button>
+                          </div>
+                        </div>
+                        <pre style={S.codePre}>{singleCode}</pre>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+                        {files.length === 0 ? (
+                          <div style={{ fontSize: 12, color: "var(--muted-2)", padding: 16, textAlign: "center" }}>No collections in this database</div>
+                        ) : files.map((f, i) => (
+                          <div key={i} style={S.codeShell}>
+                            <div style={S.codeHeader}>
+                              <span>{f.name}</span>
+                              <button onClick={() => copyText(f.content)} style={S.codeCopyBtn}>Copy</button>
+                            </div>
+                            <pre style={{ ...S.codePre, maxHeight: 160 }}>{f.content}</pre>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      {mode === "single" ? (
+                        <button onClick={doDownloadSingle} style={{ ...S.btnAccent, flex: 1 }}>
+                          <Download size={14} /> Download .{lang.ext}
+                        </button>
+                      ) : (
+                        <button onClick={doDownloadZip} style={{ ...S.btnAccent, flex: 1 }}>
+                          <Download size={14} /> Download .zip
+                        </button>
+                      )}
                     </div>
                   </>
                 );
@@ -2602,46 +3175,190 @@ export default function StudioPage() {
         style={S.rightPanel}
       >
         <div style={S.rightInner}>
-          <div style={S.rightHeader}>
-            <Settings size={14} style={{ color: "#6366f1" }} />
-            <span style={{ fontWeight: 700, fontSize: 14 }}>Properties</span>
+          <div style={{ ...S.rightHeader, justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Settings size={14} style={{ color: "#6366f1" }} />
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Properties</span>
+            </div>
+            {selCol && !selAttr && !selDoc && (
+              <button
+                onClick={() => {
+                  setMf((prev) => ({ ...prev, typesLang: prev.typesLang ?? "typescript" }));
+                  setModal({ kind: "typesPreview", colId: selCol.$id });
+                }}
+                style={S.addBtn}
+                title="View generated types"
+              >
+                <FileText size={13} />
+              </button>
+            )}
+            {selDb && !selCol && !selAttr && !selDoc && (
+              <button
+                onClick={() => {
+                  setMf((prev) => ({ ...prev, typesLang: prev.typesLang ?? "typescript", dbTypesMode: prev.dbTypesMode ?? "single" }));
+                  setModal({ kind: "dbTypesPreview" });
+                }}
+                style={S.addBtn}
+                title="Generate database types"
+              >
+                <FileText size={13} />
+              </button>
+            )}
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 14 }}>
             {selAttr ? (
               /* ── Attribute detail ── */
-              <section>
-                <div style={S.secH}><TypeIcon type={selAttr.type} size={12} /> Attribute: {selAttr.key}</div>
-                <div style={S.card}>
-                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                    <TypeIcon type={selAttr.type} size={14} />
-                    <span style={{ color: typeColor(selAttr.type), fontWeight: 600, textTransform: "capitalize" }}>{selAttr.type}</span>
+              <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Back button */}
+                <button onClick={() => setSelAttr(null)} style={{ ...S.btnGhost, width: "fit-content", padding: "4px 10px", fontSize: 12 }}>
+                  <ArrowLeft size={12} /> Back to collection
+                </button>
+
+                {/* Type header badge */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: `${typeColor(selAttr.type)}10`, border: `1px solid ${typeColor(selAttr.type)}25` }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: `${typeColor(selAttr.type)}20`, color: typeColor(selAttr.type) }}>
+                    <TypeIcon type={selAttr.type} size={18} />
                   </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{selAttr.key}</div>
+                    <div style={{ fontSize: 11, color: typeColor(selAttr.type), fontWeight: 600, textTransform: "capitalize", marginTop: 1 }}>{selAttr.type}</div>
+                  </div>
+                </div>
+
+                {/* Key + copy */}
+                <div style={S.card}>
+                  <label style={S.label}>Attribute Key</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <code style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selAttr.key}</code>
+                    <button onClick={() => copyId(selAttr.key)} style={{ ...S.addBtn, flexShrink: 0 }} title="Copy key"><Copy size={11} /></button>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, padding: "2px 8px", borderRadius: 999, background: `${typeColor(selAttr.type)}15`, color: typeColor(selAttr.type), border: `1px solid ${typeColor(selAttr.type)}30` }}>
+                      {selAttr.type}
+                    </span>
+                    {selAttr.required && (
+                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, padding: "2px 8px", borderRadius: 999, background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+                        Required
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Settings */}
+                <div style={S.card}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <Settings size={13} style={{ color: "#6366f1" }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Settings</span>
+                  </div>
+
                   <DialogSwitch
                     label="Required"
                     checked={editReq}
                     onChange={(next) => setEditReq(next)}
                   />
+
                   {typeof selAttr.size === "number" && (
-                    <div>
-                      <label style={S.label}>Size</label>
+                    <div style={{ marginTop: 6 }}>
+                      <label style={S.label}>Size (max characters)</label>
                       <input type="number" value={editSize ?? selAttr.size} onChange={e => setEditSize(+e.target.value)} style={S.input} />
                     </div>
                   )}
-                  <div>
-                    <label style={S.label}>Default</label>
+
+                  {(selAttr.type === "integer" || selAttr.type === "float") && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 6 }}>
+                      <div>
+                        <label style={S.label}>Min</label>
+                        <div style={{ fontSize: 12, color: "#94a3b8", fontFamily: "monospace", padding: "6px 10px", borderRadius: 6, background: "rgba(107,114,128,0.08)", border: "1px solid var(--panel-border)" }}>{selAttr.min ?? "—"}</div>
+                      </div>
+                      <div>
+                        <label style={S.label}>Max</label>
+                        <div style={{ fontSize: 12, color: "#94a3b8", fontFamily: "monospace", padding: "6px 10px", borderRadius: 6, background: "rgba(107,114,128,0.08)", border: "1px solid var(--panel-border)" }}>{selAttr.max ?? "—"}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 6 }}>
+                    <label style={S.label}>Default Value</label>
                     <input value={editDef} onChange={e => setEditDef(e.target.value)} placeholder="(optional)" style={S.input} />
                   </div>
                 </div>
+
+                {/* Enum elements */}
+                {selAttr.type === "enum" && selAttr.elements && selAttr.elements.length > 0 && (
+                  <div style={S.card}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                      <ListOrdered size={13} style={{ color: "#14b8a6" }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Enum Values</span>
+                      <span style={{ marginLeft: "auto", fontSize: 10, color: "#6b7280" }}>{selAttr.elements.length} values</span>
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {selAttr.elements.map((el, i) => (
+                        <span key={i} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 999, background: "rgba(20,184,166,0.08)", color: "#5eead4", border: "1px solid rgba(20,184,166,0.15)", fontFamily: "monospace" }}>{el}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Relationship info */}
+                {selAttr.type === "relationship" && (
+                  <div style={S.card}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                      <GitBranch size={13} style={{ color: "#6366f1" }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Relationship</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {(() => {
+                        const relColId = selAttr.relatedCollectionId || selAttr.related_collection_id || (typeof selAttr.relatedCollection === "string" ? selAttr.relatedCollection : selAttr.relatedCollection?.$id) || selAttr.related_collection || "—";
+                        const relCol = collections.find(c => c.$id === relColId);
+                        const relType = selAttr.relationType || selAttr.relation_type || "—";
+                        const twoWay = selAttr.twoWay ?? selAttr.two_way;
+                        const twoWayKey = selAttr.twoWayKey || selAttr.two_way_key;
+                        return (
+                          <>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#94a3b8" }}>
+                              <span style={{ color: "#6b7280" }}>Related Collection</span>
+                              <span style={{ fontWeight: 600, color: "#a5b4fc" }}>{relCol?.name ?? relColId}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#94a3b8" }}>
+                              <span style={{ color: "#6b7280" }}>Type</span>
+                              <span style={{ fontWeight: 600, fontFamily: "monospace" }}>{relType}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#94a3b8" }}>
+                              <span style={{ color: "#6b7280" }}>Two-Way</span>
+                              <span style={{ fontWeight: 600, color: twoWay ? "#10b981" : "#6b7280" }}>{twoWay ? "Yes" : "No"}</span>
+                            </div>
+                            {twoWayKey && (
+                              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#94a3b8" }}>
+                                <span style={{ color: "#6b7280" }}>Two-Way Key</span>
+                                <span style={{ fontWeight: 600, fontFamily: "monospace" }}>{twoWayKey}</span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Save */}
                 <button onClick={doSaveAttr} disabled={busy} style={{ ...S.btnAccent, width: "100%" }}>
-                  <Check size={14} /> Save
+                  <Check size={14} /> Save Changes
                 </button>
-                <button onClick={() => setModal({ kind: "confirm", title: "Delete Attribute", message: `Delete "${selAttr.key}"?`, onConfirm: () => doDeleteAttribute(selAttr.key) })} style={{ ...S.btnDanger, width: "100%", marginTop: 6 }}>
-                  <Trash2 size={14} /> Delete
-                </button>
-                <button onClick={() => setSelAttr(null)} style={{ ...S.btnGhost, width: "100%", marginTop: 6 }}>
-                  <ArrowLeft size={14} /> Back
-                </button>
+
+                {/* Danger zone */}
+                <div style={{ ...S.card, borderColor: "rgba(239,68,68,0.2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <AlertCircle size={13} style={{ color: "#ef4444" }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#ef4444" }}>Danger Zone</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8, lineHeight: 1.5 }}>
+                    Deleting this attribute is permanent and will remove it from all documents in this collection.
+                  </div>
+                  <button onClick={() => setModal({ kind: "confirm", title: "Delete Attribute", message: `Delete "${selAttr.key}"? This will remove the attribute from all documents.`, onConfirm: () => doDeleteAttribute(selAttr.key) })} style={{ ...S.btnDanger, width: "100%" }}>
+                    <Trash2 size={14} /> Delete Attribute
+                  </button>
+                </div>
               </section>
 
             ) : selDoc ? (
@@ -2670,28 +3387,76 @@ export default function StudioPage() {
 
             ) : selCol ? (
               /* ── Collection detail ── */
-              <section>
+              <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Header */}
                 <div style={S.secH}><Table2 size={12} /> Collection</div>
+
+                {/* Name + ID */}
                 <div style={S.card}>
                   <label style={S.label}>Name</label>
                   <div style={{ display: "flex", gap: 6 }}>
                     <input value={editName} onChange={e => setEditName(e.target.value)} style={{ ...S.input, flex: 1, marginBottom: 0 }} />
                     <button onClick={doSaveColName} disabled={busy} style={{ ...S.btnAccent, padding: "6px 12px" }}><Check size={14} /></button>
                   </div>
-                  <div style={{ fontSize: 11, color: "#475569", marginTop: 6, fontFamily: "monospace" }}>{selCol.$id}</div>
+                  <label style={{ ...S.label, marginTop: 10 }}>Collection ID</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <code style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selCol.$id}</code>
+                    <button onClick={() => copyId(selCol.$id)} style={{ ...S.addBtn, flexShrink: 0 }} title="Copy ID"><Copy size={11} /></button>
+                  </div>
                 </div>
-                <button onClick={() => setModal({ kind: "confirm", title: "Delete Collection", message: `Delete "${selCol.name}"?`, onConfirm: () => doDeleteCollection(selCol.$id) })} style={{ ...S.btnDanger, width: "100%", marginTop: 6 }}>
-                  <Trash2 size={14} /> Delete
-                </button>
-                <button
-                  onClick={() => {
-                    setMf((prev) => ({ ...prev, typesLang: prev.typesLang ?? "typescript" }));
-                    setModal({ kind: "typesPreview", colId: selCol.$id });
-                  }}
-                  style={{ ...S.btnGhost, width: "100%", marginTop: 6 }}
-                >
-                  <FileText size={14} /> Types
-                </button>
+
+                {/* Status & Settings */}
+                <div style={S.card}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Power size={13} style={{ color: selCol.enabled !== false ? "#10b981" : "#ef4444" }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Status</span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: selCol.enabled !== false ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", color: selCol.enabled !== false ? "#10b981" : "#ef4444", border: `1px solid ${selCol.enabled !== false ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                      {selCol.enabled !== false ? "Active" : "Disabled"}
+                    </span>
+                  </div>
+                  <DialogSwitch
+                    label="Enabled"
+                    checked={selCol.enabled !== false}
+                    onChange={() => doToggleColEnabled()}
+                  />
+                  <DialogSwitch
+                    label="Document Security"
+                    checked={!!selCol.documentSecurity}
+                    onChange={() => doToggleDocSecurity()}
+                  />
+                  <div style={{ fontSize: 10, color: "#6b7280", lineHeight: 1.5, marginTop: 4 }}>
+                    When document security is enabled, users can access documents for which they have been granted either document or collection level permissions.
+                  </div>
+                </div>
+
+                {/* Overview */}
+                <div style={S.card}>
+                  <label style={S.label}>Overview</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.1)" }}>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#a5b4fc" }}>{attributes.length}</div>
+                      <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>Attributes</div>
+                    </div>
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.1)" }}>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#6ee7b7" }}>{indexes.length}</div>
+                      <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>Indexes</div>
+                    </div>
+                  </div>
+                  {selCol.$createdAt && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, fontSize: 11, color: "#6b7280" }}>
+                      <Clock size={11} />
+                      <span>Created {new Date(selCol.$createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+                    </div>
+                  )}
+                  {selCol.$updatedAt && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, fontSize: 11, color: "#6b7280" }}>
+                      <Clock size={11} />
+                      <span>Updated {new Date(selCol.$updatedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Tabs */}
                 <div style={S.tabBar}>
@@ -2837,19 +3602,161 @@ export default function StudioPage() {
                     ))}
                   </>
                 )}
+
+                {/* Danger Zone */}
+                <div style={{ ...S.card, borderColor: "rgba(239,68,68,0.2)", marginTop: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <AlertCircle size={13} style={{ color: "#ef4444" }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#ef4444" }}>Danger Zone</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8, lineHeight: 1.5 }}>
+                    Deleting this collection will permanently remove all attributes, indexes, and documents within it.
+                  </div>
+                  <button
+                    onClick={() => setModal({ kind: "confirm", title: "Delete Collection", message: `Delete "${selCol.name}"? All attributes, indexes, and documents will be permanently lost.`, onConfirm: () => doDeleteCollection(selCol.$id) })}
+                    style={{ ...S.btnDanger, width: "100%" }}
+                  >
+                    <Trash2 size={14} /> Delete Collection
+                  </button>
+                </div>
               </section>
 
             ) : selDb ? (
               /* ── Database detail ── */
-              <section>
+              <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Header */}
                 <div style={S.secH}><DatabaseIcon size={12} /> Database</div>
+
+                {/* Name + ID */}
                 <div style={S.card}>
                   <label style={S.label}>Name</label>
                   <div style={{ display: "flex", gap: 6 }}>
                     <input value={editName} onChange={e => setEditName(e.target.value)} style={{ ...S.input, flex: 1, marginBottom: 0 }} />
                     <button onClick={doSaveDbName} disabled={busy} style={{ ...S.btnAccent, padding: "6px 12px" }}><Check size={14} /></button>
                   </div>
-                  <div style={{ fontSize: 11, color: "#475569", marginTop: 6, fontFamily: "monospace" }}>{selDb.$id}</div>
+                  <label style={{ ...S.label, marginTop: 10 }}>Database ID</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <code style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selDb.$id}</code>
+                    <button onClick={() => copyId(selDb.$id)} style={{ ...S.addBtn, flexShrink: 0 }} title="Copy ID"><Copy size={11} /></button>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div style={S.card}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Power size={13} style={{ color: selDb.enabled !== false ? "#10b981" : "#ef4444" }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Status</span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: selDb.enabled !== false ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", color: selDb.enabled !== false ? "#10b981" : "#ef4444", border: `1px solid ${selDb.enabled !== false ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+                      {selDb.enabled !== false ? "Active" : "Disabled"}
+                    </span>
+                  </div>
+                  <DialogSwitch
+                    label="Enabled"
+                    checked={selDb.enabled !== false}
+                    onChange={() => doToggleDbEnabled()}
+                  />
+                </div>
+
+                {/* Stats overview */}
+                <div style={S.card}>
+                  <label style={S.label}>Overview</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.1)" }}>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#a5b4fc" }}>{collections.length}</div>
+                      <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>Collections</div>
+                    </div>
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.1)" }}>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#6ee7b7" }}>{Object.values(allAttrs).reduce((sum, arr) => sum + arr.length, 0)}</div>
+                      <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>Attributes</div>
+                    </div>
+                  </div>
+                  {selDb.$createdAt && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, fontSize: 11, color: "#6b7280" }}>
+                      <Clock size={11} />
+                      <span>Created {new Date(selDb.$createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+                    </div>
+                  )}
+                  {selDb.$updatedAt && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, fontSize: 11, color: "#6b7280" }}>
+                      <Clock size={11} />
+                      <span>Updated {new Date(selDb.$updatedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Backup & Export */}
+                <div style={S.card}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <Shield size={13} style={{ color: "#6366f1" }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Backup & Export</span>
+                  </div>
+
+                  <label style={S.label}>Schedule</label>
+                  <select
+                    value={backupPolicies[selDb.$id]?.schedule || "manual"}
+                    onChange={e => saveBackupPolicy(selDb.$id, e.target.value, backupPolicies[selDb.$id]?.retention || 5)}
+                    style={S.select}
+                  >
+                    <option value="manual">Manual only</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+
+                  <label style={S.label}>Retention (exports to keep)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={backupPolicies[selDb.$id]?.retention || 5}
+                    onChange={e => saveBackupPolicy(selDb.$id, backupPolicies[selDb.$id]?.schedule || "manual", Math.max(1, Math.min(50, +e.target.value)))}
+                    style={S.input}
+                  />
+
+                  {backupPolicies[selDb.$id]?.lastBackup && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
+                      <Clock size={11} />
+                      <span>Last backup: {new Date(backupPolicies[selDb.$id].lastBackup!).toLocaleString()}</span>
+                    </div>
+                  )}
+
+                  <button onClick={doRunBackup} disabled={busy} style={{ ...S.btnAccent, width: "100%" }}>
+                    <Download size={14} /> Export Schema Now
+                  </button>
+                </div>
+
+                {/* Export full schema */}
+                <div style={S.card}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <HardDrive size={13} style={{ color: "#6366f1" }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Quick Actions</span>
+                  </div>
+                  <button
+                    onClick={doExportDbSchema}
+                    disabled={busy}
+                    style={{ ...S.btnGhost, width: "100%", justifyContent: "center" }}
+                  >
+                    <Download size={14} /> Export as JSON
+                  </button>
+                </div>
+
+                {/* Danger zone */}
+                <div style={{ ...S.card, borderColor: "rgba(239,68,68,0.2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <AlertCircle size={13} style={{ color: "#ef4444" }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#ef4444" }}>Danger Zone</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 8, lineHeight: 1.5 }}>
+                    Deleting a database will permanently remove all collections, attributes, and documents within it.
+                  </div>
+                  <button
+                    onClick={() => setModal({ kind: "confirm", title: "Delete Database", message: `Delete "${selDb.name}"? All collections and documents will be permanently lost.`, onConfirm: () => doDeleteDatabase(selDb.$id) })}
+                    style={{ ...S.btnDanger, width: "100%" }}
+                  >
+                    <Trash2 size={14} /> Delete Database
+                  </button>
                 </div>
               </section>
             ) : (
