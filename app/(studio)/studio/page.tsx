@@ -53,6 +53,7 @@ import {
 
 /* ─── Types ─── */
 type AppwriteConfig = { endpoint: string; projectId: string; apiKey: string };
+type SavedConnection = { id: string; name: string; config: AppwriteConfig; createdAt: string; updatedAt: string };
 type DatabaseT = { $id: string; name: string; enabled?: boolean; $createdAt?: string; $updatedAt?: string };
 type Collection = { $id: string; name: string; permissions?: string[]; $permissions?: string[]; enabled?: boolean; documentSecurity?: boolean; $createdAt?: string; $updatedAt?: string };
 type Attribute = {
@@ -94,6 +95,7 @@ type ModalState =
   | { kind: "permissionRule" }
   | { kind: "typesPreview"; colId: string }
   | { kind: "dbTypesPreview" }
+  | { kind: "leftPanelDetails" }
   | { kind: "confirm"; title: string; message: string; onConfirm: () => void };
 
 type LanguageOpt = {
@@ -1051,11 +1053,17 @@ const envCfg: AppwriteConfig = {
   apiKey: process.env.NEXT_PUBLIC_APPWRITE_API_KEY ?? "",
 };
 
+const CONNECTIONS_KEY = "xinaConnections";
+const ACTIVE_CONNECTION_KEY = "xinaActiveConnectionId";
+
 /* ═══════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════ */
 export default function StudioPage() {
   const [cfg, setCfg] = useState<AppwriteConfig>({ endpoint: "", projectId: "", apiKey: "" });
+  const [connections, setConnections] = useState<SavedConnection[]>([]);
+  const [activeConnectionId, setActiveConnectionId] = useState<string | null>(null);
+  const [connectionName, setConnectionName] = useState("");
   const [connected, setConnected] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -1096,21 +1104,148 @@ export default function StudioPage() {
   const activeDbIdRef = useRef<string | null>(null);
   const [theme, setTheme] = useState<ThemeMode>("dark");
 
+  const clearWorkspaceState = useCallback(() => {
+    setDatabases([]);
+    setCollections([]);
+    setAttributes([]);
+    setDocuments([]);
+    setIndexes([]);
+    setAllAttrs({});
+    setSelDb(null);
+    setSelCol(null);
+    setSelAttr(null);
+    setSelDoc(null);
+    setNodes({});
+    activeDbIdRef.current = null;
+  }, []);
+
   /* ─── Persist config ─── */
   const saveCfg = (c: AppwriteConfig) => {
     setCfg(c);
     try { localStorage.setItem("xinaAppwriteConfig", JSON.stringify(c)); } catch {}
   };
 
-  useEffect(() => {
+  const persistConnections = useCallback((next: SavedConnection[], nextActiveId: string | null) => {
+    setConnections(next);
+    setActiveConnectionId(nextActiveId);
     try {
-      const raw = localStorage.getItem("xinaAppwriteConfig");
-      const saved = raw ? JSON.parse(raw) : null;
-      const merged = { ...envCfg, ...(saved ?? {}) };
-      setCfg(merged);
-      if (cfgReady(merged)) setConnected(true);
+      localStorage.setItem(CONNECTIONS_KEY, JSON.stringify(next));
+      if (nextActiveId) localStorage.setItem(ACTIVE_CONNECTION_KEY, nextActiveId);
+      else localStorage.removeItem(ACTIVE_CONNECTION_KEY);
     } catch {}
   }, []);
+
+  const selectConnection = useCallback((id: string) => {
+    const picked = connections.find((c) => c.id === id);
+    if (!picked) return;
+    saveCfg(picked.config);
+    setConnectionName(picked.name);
+    persistConnections(connections, picked.id);
+    if (connected) {
+      setConnected(false);
+      clearWorkspaceState();
+      toast.info("Disconnected. Connect to the selected profile.");
+    }
+  }, [clearWorkspaceState, connected, connections, persistConnections]);
+
+  const addConnection = useCallback(() => {
+    const name = connectionName.trim();
+    if (!name) { toast.error("Connection name is required"); return; }
+    if (!cfgReady(cfg)) { toast.error("Fill all connection fields"); return; }
+    if (connections.length >= 1) {
+      toast.error("Only one saved connection is allowed. Update or remove the existing connection.");
+      return;
+    }
+    const now = new Date().toISOString();
+    const entry: SavedConnection = {
+      id: `conn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name,
+      config: { ...cfg },
+      createdAt: now,
+      updatedAt: now,
+    };
+    const next = [...connections, entry];
+    persistConnections(next, entry.id);
+    toast.success("Connection profile added");
+  }, [cfg, connectionName, connections, persistConnections]);
+
+  const updateConnection = useCallback(() => {
+    if (!activeConnectionId) { toast.error("Select a connection first"); return; }
+    const name = connectionName.trim();
+    if (!name) { toast.error("Connection name is required"); return; }
+    if (!cfgReady(cfg)) { toast.error("Fill all connection fields"); return; }
+    const next = connections.map((c) => (
+      c.id === activeConnectionId
+        ? { ...c, name, config: { ...cfg }, updatedAt: new Date().toISOString() }
+        : c
+    ));
+    persistConnections(next, activeConnectionId);
+    toast.success("Connection profile updated");
+  }, [activeConnectionId, cfg, connectionName, connections, persistConnections]);
+
+  const removeConnection = useCallback(() => {
+    if (!activeConnectionId) { toast.error("Select a connection first"); return; }
+    const next = connections.filter((c) => c.id !== activeConnectionId);
+    const nextActiveId = next[0]?.id ?? null;
+    persistConnections(next, nextActiveId);
+    if (nextActiveId) {
+      const picked = next.find((c) => c.id === nextActiveId);
+      if (picked) {
+        saveCfg(picked.config);
+        setConnectionName(picked.name);
+      }
+    } else {
+      saveCfg({ endpoint: "", projectId: "", apiKey: "" });
+      setConnectionName("");
+    }
+    setConnected(false);
+    clearWorkspaceState();
+    toast.success("Connection profile removed");
+  }, [activeConnectionId, clearWorkspaceState, connections, persistConnections]);
+
+  const disconnectCurrent = useCallback(() => {
+    if (!connected) return;
+    setConnected(false);
+    clearWorkspaceState();
+    toast.info("Disconnected");
+  }, [clearWorkspaceState, connected]);
+
+  useEffect(() => {
+    try {
+      const rawConnections = localStorage.getItem(CONNECTIONS_KEY);
+      const rawActive = localStorage.getItem(ACTIVE_CONNECTION_KEY);
+      const parsedConnections: SavedConnection[] = rawConnections ? JSON.parse(rawConnections) : [];
+
+      if (Array.isArray(parsedConnections) && parsedConnections.length > 0) {
+        const chosen = parsedConnections.find((c) => c.id === rawActive) ?? parsedConnections[0];
+        const single = [chosen];
+        persistConnections(single, chosen.id);
+        setActiveConnectionId(chosen.id);
+        setConnectionName(chosen.name);
+        setCfg(chosen.config);
+        if (cfgReady(chosen.config)) setConnected(true);
+        return;
+      }
+
+      const rawSingle = localStorage.getItem("xinaAppwriteConfig");
+      const savedSingle = rawSingle ? JSON.parse(rawSingle) : null;
+      const merged = { ...envCfg, ...(savedSingle ?? {}) };
+      setCfg(merged);
+      if (cfgReady(merged)) {
+        const now = new Date().toISOString();
+        const seed: SavedConnection = {
+          id: `conn_${Date.now()}_seed`,
+          name: "Default",
+          config: merged,
+          createdAt: now,
+          updatedAt: now,
+        };
+        persistConnections([seed], seed.id);
+        setConnectionName(seed.name);
+        setConnected(true);
+      }
+    } catch {}
+  }, [persistConnections]);
 
   useEffect(() => {
     const savedTheme = typeof window !== "undefined" ? localStorage.getItem("xinaTheme") : null;
@@ -2246,6 +2381,7 @@ export default function StudioPage() {
                 ...S.modal,
                 ...(modal.kind === "typesPreview" || modal.kind === "dbTypesPreview" ? S.modalWide : {}),
                 ...(modal.kind === "permissionRule" ? { width: 520 } : {}),
+                ...(modal.kind === "leftPanelDetails" ? { width: 520 } : {}),
               }}
               onClick={e => e.stopPropagation()}
             >
@@ -2437,6 +2573,55 @@ export default function StudioPage() {
                       <Trash2 size={14} /> Delete
                     </button>
                     <button onClick={closeModal} style={S.modalBtnSecondary}>Cancel</button>
+                  </div>
+                </>
+              )}
+
+              {modal.kind === "leftPanelDetails" && (
+                <>
+                  <p style={S.modalH}>Connection</p>
+                  <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }}>
+                    Status: <span style={{ color: connected ? "#10b981" : "#f59e0b", fontWeight: 600 }}>{connected ? "Connected" : "Disconnected"}</span>
+                  </div>
+
+                  {connections.length > 0 && (
+                    <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 6 }}>
+                      Saved profile: <strong style={{ color: "var(--text)" }}>{connections[0]?.name}</strong>
+                    </div>
+                  )}
+
+                  <input value={connectionName} onChange={e => setConnectionName(e.target.value)} placeholder="Connection Name" style={S.input} />
+                  <input value={cfg.endpoint} onChange={e => saveCfg({ ...cfg, endpoint: e.target.value })} placeholder="Endpoint URL" style={S.input} />
+                  <input value={cfg.projectId} onChange={e => saveCfg({ ...cfg, projectId: e.target.value })} placeholder="Project ID" style={S.input} />
+                  <input value={cfg.apiKey} onChange={e => saveCfg({ ...cfg, apiKey: e.target.value })} placeholder="API Key" type="password" style={S.input} />
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 4 }}>
+                    <button onClick={addConnection} disabled={connections.length >= 1} style={{ ...S.modalBtnPrimary, margin: 0, opacity: connections.length >= 1 ? 0.6 : 1 }}>
+                      <Plus size={14} /> Add
+                    </button>
+                    <button onClick={updateConnection} disabled={!activeConnectionId} style={{ ...S.modalBtnSecondary, margin: 0, opacity: activeConnectionId ? 1 : 0.6 }}>
+                      <Pencil size={14} /> Update
+                    </button>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 8 }}>
+                    <button
+                      onClick={removeConnection}
+                      disabled={!activeConnectionId}
+                      style={{ ...S.modalBtnDanger, margin: 0, opacity: activeConnectionId ? 1 : 0.6 }}
+                    >
+                      <Trash2 size={14} /> Remove
+                    </button>
+                    <button onClick={closeModal} style={{ ...S.modalBtnSecondary, margin: 0 }}>Close</button>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 8 }}>
+                    <button onClick={handleConnect} disabled={busy} style={{ ...S.modalBtnPrimary, margin: 0 }}>
+                      {busy ? <Loader2 size={14} className="spin" /> : <Plug size={14} />} Connect
+                    </button>
+                    <button onClick={disconnectCurrent} disabled={!connected} style={{ ...S.modalBtnSecondary, margin: 0, opacity: connected ? 1 : 0.6 }}>
+                      <Power size={14} /> Disconnect
+                    </button>
                   </div>
                 </>
               )}
@@ -2670,28 +2855,50 @@ export default function StudioPage() {
         <div style={S.leftInner}>
           {/* Logo */}
           <div style={S.logo}>
-            <Layers size={18} strokeWidth={2.5} />
-            <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: 1.5 }}>XINA</span>
+            <img src="/xina-logo.svg" alt="Xina" style={{ height: 26, width: "auto" }} />
+            <Tooltip>
+              <TooltipTrigger
+                onClick={() => setModal({ kind: "leftPanelDetails" })}
+                aria-label="Open details"
+                style={{
+                  marginLeft: "auto",
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  border: "1px solid var(--panel-border)",
+                  background: "var(--surface)",
+                  color: "var(--muted)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                <Info size={14} />
+              </TooltipTrigger>
+              <TooltipContent>Other details</TooltipContent>
+            </Tooltip>
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Connection */}
-            {!connected ? (
-              <section>
-                <div style={S.secH}><Plug size={12} /> Connection</div>
-                <input value={cfg.endpoint} onChange={e => saveCfg({ ...cfg, endpoint: e.target.value })} placeholder="Endpoint URL" style={S.input} />
-                <input value={cfg.projectId} onChange={e => saveCfg({ ...cfg, projectId: e.target.value })} placeholder="Project ID" style={S.input} />
-                <input value={cfg.apiKey} onChange={e => saveCfg({ ...cfg, apiKey: e.target.value })} placeholder="API Key" type="password" style={S.input} />
-                <button onClick={handleConnect} disabled={busy} style={{ ...S.btnAccent, width: "100%" }}>
-                  {busy ? <Loader2 size={14} className="spin" /> : <Plug size={14} />} Connect
-                </button>
-              </section>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: "#10b981" }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 8px #10b981" }} />
-                Connected
+            <section>
+              <div style={{ ...S.secH, justifyContent: "space-between" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Plug size={12} /> Connection</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: connected ? "#10b981" : "var(--muted)" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: connected ? "#10b981" : "var(--muted)", boxShadow: connected ? "0 0 8px #10b981" : "none" }} />
+                  {connected ? "Connected" : "Disconnected"}
+                </span>
               </div>
-            )}
+
+              <button
+                onClick={() => setModal({ kind: "leftPanelDetails" })}
+                style={{ ...S.btnGhost, width: "100%", justifyContent: "center", marginTop: 8 }}
+              >
+                <Info size={14} /> Manage Credentials
+              </button>
+            </section>
 
            
 

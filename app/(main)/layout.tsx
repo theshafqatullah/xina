@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Database, Github, Menu, X } from "lucide-react";
+import { Github, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 const NAV_LINKS = [
@@ -29,11 +29,8 @@ function Navbar() {
         className="flex h-14 w-full max-w-6xl items-center justify-between rounded-full px-5 shadow-lg shadow-black/20 backdrop-blur-xl"
       >
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 shadow-lg shadow-indigo-600/25">
-            <Database size={15} className="text-white" />
-          </span>
-          <span className="text-[15px] font-bold tracking-tight text-white">Xina</span>
+        <Link href="/" className="flex items-center">
+          <img src="/xina-logo.svg" alt="Xina" className="h-7 w-auto" />
         </Link>
 
         {/* Desktop links */}
@@ -125,11 +122,8 @@ function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-4">
           {/* Brand */}
           <div className="sm:col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-600 shadow-lg shadow-indigo-600/20">
-                <Database size={13} className="text-white" />
-              </span>
-              <span className="text-sm font-bold text-white">Xina</span>
+            <div className="flex items-center">
+              <img src="/xina-logo.svg" alt="Xina" className="h-6 w-auto" />
             </div>
             <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-zinc-500">
               Visual database schema designer for Appwrite. Design, visualize, and manage your collections.
