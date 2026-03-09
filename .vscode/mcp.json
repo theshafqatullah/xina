@@ -1,0 +1,24 @@
+{
+    "servers": {
+        "appwrite-api": {
+            "type": "stdio",
+            "command": "uvx",
+            "args": [
+                "mcp-server-appwrite",
+                "--databases",
+                "--storage",
+                "--messaging"
+            ],
+            "env": {
+                "APPWRITE_API_KEY": "standard_8d650283e5f0f9b5b124fac67938d937726e36d25e2d90a4814c0d6d7e7475befffc18beed99c6ae189900803c7f945a5751e7ec5a8315bc5822f2be3237f3528a8978543b4407df18d4067378122e7754d17e4dc621dbdcbb2b4076284ceb3565eb1a8fce0c298a598671169aa4657fac4950f8e0d9de9ed90e7d01cd89cc6b",
+                "APPWRITE_PROJECT_ID": "69adde39000c7e6b0d62",
+                "APPWRITE_ENDPOINT": "https://fra.cloud.appwrite.io/v1"
+            }
+        },
+        "appwrite-docs": {
+            "url": "https://mcp-for-docs.appwrite.io",
+            "type": "http"
+        }
+    },
+    "inputs": []
+}
