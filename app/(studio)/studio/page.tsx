@@ -387,7 +387,7 @@ function relationshipMirrorId(from: string, to: string, key: string, twoWayKey: 
 function relationRowCenterY(nodeY: number, attrs: Attribute[], wantedKey: string): number | null {
   const idx = attrs.findIndex((a) => a.type === "relationship" && a.key === wantedKey);
   if (idx < 0) return null;
-  return nodeY + NODE_HEADER + (idx * ATTR_ROW) + ATTR_ROW / 2;
+  return nodeY + NODE_HEADER + SYS_ATTR_TOP.length * ATTR_ROW + (idx * ATTR_ROW) + ATTR_ROW / 2;
 }
 
 function extractRelationshipEdges(all: Record<string, Attribute[]>): Rel[] {
@@ -623,6 +623,15 @@ ${body || "    // no custom attributes yet"}
   return "// Unsupported language";
 }
 
+/* ─── Appwrite system attributes ─── */
+const SYS_ATTR_TOP: Attribute[] = [
+  { key: "$id", type: "string", required: true },
+];
+const SYS_ATTR_BOTTOM: Attribute[] = [
+  { key: "$createdAt", type: "datetime", required: true },
+  { key: "$updatedAt", type: "datetime", required: true },
+];
+
 /* ─── Layout constants ─── */
 const NODE_W = 290;
 const NODE_HEADER = 44;
@@ -631,7 +640,7 @@ const GRID = 20;
 const PANEL_MARGIN = 10;
 const LEFT_PANEL_WIDTH = 280;
 const RIGHT_PANEL_WIDTH = 320;
-const nodeH = (n: number) => NODE_HEADER + Math.max(1, n) * ATTR_ROW + 8;
+const nodeH = (n: number) => NODE_HEADER + SYS_ATTR_TOP.length * ATTR_ROW + Math.max(1, n) * ATTR_ROW + SYS_ATTR_BOTTOM.length * ATTR_ROW;
 
 function filled(v: unknown): v is string { return typeof v === "string" && v.trim().length > 0; }
 function cfgReady(c: AppwriteConfig) { return filled(c.endpoint) && filled(c.projectId) && filled(c.apiKey); }
@@ -1476,20 +1485,10 @@ export default function StudioPage() {
       bx = toRight ? to.x : to.x + NODE_W;
       by = targetRowY;
     } else {
-      // Non two-way target: snap to fixed header side ports (left/right).
-      const headerTopY = to.y;
-      const headerMidY = to.y + NODE_HEADER / 2;
-      const leftPort = { x: to.x, y: headerMidY };
-      const rightPort = { x: to.x + NODE_W, y: headerMidY };
-
-      const candidates = [leftPort, rightPort];
-      const best = candidates.reduce((acc, p) => {
-        const d = Math.hypot(p.x - ax, p.y - ay);
-        return d < acc.dist ? { port: p, dist: d } : acc;
-      }, { port: candidates[0], dist: Number.POSITIVE_INFINITY });
-
-      bx = best.port.x;
-      by = best.port.y;
+      // One-way: snap to target collection's $id row.
+      const idRowY = to.y + NODE_HEADER + ATTR_ROW / 2;
+      bx = toRight ? to.x : to.x + NODE_W;
+      by = idRowY;
     }
 
     return { ax, ay, bx, by };
@@ -1554,13 +1553,11 @@ export default function StudioPage() {
   ) => {
     const PORT_STUB = 18;
     const CLEARANCE = 14;
-    const SCAN_STEP = 22;
-    const SCAN_LIMIT = 1400;
+    const SCAN_STEP = 20;
 
-    // Normalize everything into the same local SVG coordinate space.
+    // Normalize into local SVG coordinate space.
     const fromX = from.x - offsetLeft;
     const toX = to.x - offsetLeft;
-    const toY = to.y - offsetTop;
 
     const fromSide = Math.abs(ax - fromX) < 0.5 ? "left" : "right";
     const toSide = Math.abs(bx - toX) < 0.5
@@ -1581,109 +1578,126 @@ export default function StudioPage() {
           y: by,
         };
 
-    const rects = Object.values(nodes).map((n) => {
+    // Collect obstacle rectangles (with clearance) in local coords.
+    const rects: Array<{ l: number; r: number; t: number; b: number }> = [];
+    const nodeValues = Object.values(nodes);
+    for (let ni = 0; ni < nodeValues.length; ni++) {
+      const n = nodeValues[ni];
+      if (n.id === fromId || n.id === toId) continue;
       const attrs = allAttrs[n.id] ?? [];
       const h = nodeH(attrs.length);
-      return {
-        id: n.id,
+      rects.push({
         l: (n.x - offsetLeft) - CLEARANCE,
         r: (n.x - offsetLeft) + NODE_W + CLEARANCE,
         t: (n.y - offsetTop) - CLEARANCE,
         b: (n.y - offsetTop) + h + CLEARANCE,
-      };
-    });
-
-    const isHorizontalClear = (y: number, x1: number, x2: number) => {
-      const minX = Math.min(x1, x2);
-      const maxX = Math.max(x1, x2);
-      return !rects.some((r) => {
-        if (r.id === fromId || r.id === toId) return false;
-        if (y <= r.t || y >= r.b) return false;
-        return maxX > r.l && minX < r.r;
       });
-    };
-
-    const isVerticalClear = (x: number, y1: number, y2: number) => {
-      const minY = Math.min(y1, y2);
-      const maxY = Math.max(y1, y2);
-      return !rects.some((r) => {
-        if (r.id === fromId || r.id === toId) return false;
-        if (x <= r.l || x >= r.r) return false;
-        return maxY > r.t && minY < r.b;
-      });
-    };
-
-    // Strategy 1: vertical corridor (side routing) — H → V → H
-    const routeWithX = (cx: number) => {
-      if (!isHorizontalClear(startOut.y, startOut.x, cx)) return false;
-      if (!isVerticalClear(cx, startOut.y, endOut.y)) return false;
-      if (!isHorizontalClear(endOut.y, cx, endOut.x)) return false;
-      return true;
-    };
-
-    // Strategy 2: horizontal corridor (top/bottom routing) — V → H → V
-    const routeWithY = (cy: number) => {
-      if (!isVerticalClear(startOut.x, startOut.y, cy)) return false;
-      if (!isHorizontalClear(cy, startOut.x, endOut.x)) return false;
-      if (!isVerticalClear(endOut.x, cy, endOut.y)) return false;
-      return true;
-    };
-
-    const midX = (startOut.x + endOut.x) / 2;
-    const midY = (startOut.y + endOut.y) / 2;
-
-    // Try vertical corridor first (typical side routing)
-    const xCandidates: number[] = [startOut.x, endOut.x, midX];
-    for (let step = 0; step <= SCAN_LIMIT; step += SCAN_STEP) {
-      xCandidates.push(midX + step, midX - step);
-    }
-    const corridorX = xCandidates.find((c) => routeWithX(c));
-
-    // Try horizontal corridor (top/bottom routing)
-    const yCandidates: number[] = [startOut.y, endOut.y, midY];
-    for (let step = 0; step <= SCAN_LIMIT; step += SCAN_STEP) {
-      yCandidates.push(midY + step, midY - step);
-    }
-    const corridorY = yCandidates.find((c) => routeWithY(c));
-
-    // Pick the shortest clear route among strategies
-    let points: Array<{ x: number; y: number }>;
-
-    const makeXRoute = (cx: number) => [
-      { x: ax, y: ay },
-      { x: startOut.x, y: startOut.y },
-      { x: cx, y: startOut.y },
-      { x: cx, y: endOut.y },
-      { x: endOut.x, y: endOut.y },
-      { x: bx, y: by },
-    ];
-
-    const makeYRoute = (cy: number) => [
-      { x: ax, y: ay },
-      { x: startOut.x, y: startOut.y },
-      { x: startOut.x, y: cy },
-      { x: endOut.x, y: cy },
-      { x: endOut.x, y: endOut.y },
-      { x: bx, y: by },
-    ];
-
-    const pathLen = (pts: Array<{ x: number; y: number }>) =>
-      pts.reduce((sum, p, i) => (i === 0 ? 0 : sum + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y)), 0);
-
-    if (corridorX !== undefined && corridorY !== undefined) {
-      const xRoute = makeXRoute(corridorX);
-      const yRoute = makeYRoute(corridorY);
-      points = pathLen(xRoute) <= pathLen(yRoute) ? xRoute : yRoute;
-    } else if (corridorX !== undefined) {
-      points = makeXRoute(corridorX);
-    } else if (corridorY !== undefined) {
-      points = makeYRoute(corridorY);
-    } else {
-      // Fallback: use the midpoint X route even if obstructed
-      points = makeXRoute(midX);
     }
 
-    return roundedPathFromPoints(points);
+    // Fast segment-obstacle intersection checks.
+    const hHit = (y: number, x1: number, x2: number) => {
+      const lo = Math.min(x1, x2), hi = Math.max(x1, x2);
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i];
+        if (y > r.t && y < r.b && hi > r.l && lo < r.r) return true;
+      }
+      return false;
+    };
+    const vHit = (x: number, y1: number, y2: number) => {
+      const lo = Math.min(y1, y2), hi = Math.max(y1, y2);
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i];
+        if (x > r.l && x < r.r && hi > r.t && lo < r.b) return true;
+      }
+      return false;
+    };
+
+    const sx = startOut.x, sy = startOut.y;
+    const ex = endOut.x, ey = endOut.y;
+
+    // Strategy 1: single L-bend (2 segments, 1 corner) — cheapest.
+    // Option A: H then V (corner at ex, sy)
+    if (!hHit(sy, sx, ex) && !vHit(ex, sy, ey)) {
+      return roundedPathFromPoints([
+        { x: ax, y: ay }, { x: sx, y: sy },
+        { x: ex, y: sy },
+        { x: ex, y: ey }, { x: bx, y: by },
+      ]);
+    }
+    // Option B: V then H (corner at sx, ey)
+    if (!vHit(sx, sy, ey) && !hHit(ey, sx, ex)) {
+      return roundedPathFromPoints([
+        { x: ax, y: ay }, { x: sx, y: sy },
+        { x: sx, y: ey },
+        { x: ex, y: ey }, { x: bx, y: by },
+      ]);
+    }
+
+    // Strategy 2: Z/U route with a vertical corridor (H → V → H, 3 segments).
+    // Collect candidate X values: obstacle edges + midpoints.
+    const xCands: number[] = [sx, ex, (sx + ex) / 2];
+    for (let i = 0; i < rects.length; i++) {
+      xCands.push(rects[i].l - SCAN_STEP, rects[i].r + SCAN_STEP);
+    }
+    // Sort by distance to midpoint for shorter paths first.
+    const midX = (sx + ex) / 2;
+    xCands.sort((a, b) => Math.abs(a - midX) - Math.abs(b - midX));
+
+    for (let i = 0; i < xCands.length; i++) {
+      const cx = xCands[i];
+      if (!hHit(sy, sx, cx) && !vHit(cx, sy, ey) && !hHit(ey, cx, ex)) {
+        return roundedPathFromPoints([
+          { x: ax, y: ay }, { x: sx, y: sy },
+          { x: cx, y: sy }, { x: cx, y: ey },
+          { x: ex, y: ey }, { x: bx, y: by },
+        ]);
+      }
+    }
+
+    // Strategy 3: Z/U route with a horizontal corridor (V → H → V, 3 segments).
+    const yCands: number[] = [sy, ey, (sy + ey) / 2];
+    for (let i = 0; i < rects.length; i++) {
+      yCands.push(rects[i].t - SCAN_STEP, rects[i].b + SCAN_STEP);
+    }
+    const midY = (sy + ey) / 2;
+    yCands.sort((a, b) => Math.abs(a - midY) - Math.abs(b - midY));
+
+    for (let i = 0; i < yCands.length; i++) {
+      const cy = yCands[i];
+      if (!vHit(sx, sy, cy) && !hHit(cy, sx, ex) && !vHit(ex, cy, ey)) {
+        return roundedPathFromPoints([
+          { x: ax, y: ay }, { x: sx, y: sy },
+          { x: sx, y: cy }, { x: ex, y: cy },
+          { x: ex, y: ey }, { x: bx, y: by },
+        ]);
+      }
+    }
+
+    // Strategy 4: 5-segment S-route (H → V → H → V → H).
+    // Try combining an X corridor with a Y corridor.
+    for (let xi = 0; xi < xCands.length; xi++) {
+      const cx = xCands[xi];
+      if (hHit(sy, sx, cx)) continue;
+      for (let yi = 0; yi < yCands.length; yi++) {
+        const cy = yCands[yi];
+        if (!vHit(cx, sy, cy) && !hHit(cy, cx, ex) && !vHit(ex, cy, ey)) {
+          return roundedPathFromPoints([
+            { x: ax, y: ay }, { x: sx, y: sy },
+            { x: cx, y: sy }, { x: cx, y: cy },
+            { x: ex, y: cy }, { x: ex, y: ey },
+            { x: bx, y: by },
+          ]);
+        }
+      }
+    }
+
+    // Fallback: simple midpoint route (may cross obstacles but never hangs).
+    const mx = (sx + ex) / 2;
+    return roundedPathFromPoints([
+      { x: ax, y: ay }, { x: sx, y: sy },
+      { x: mx, y: sy }, { x: mx, y: ey },
+      { x: ex, y: ey }, { x: bx, y: by },
+    ]);
   };
 
   const nodeArr = Object.values(nodes);
@@ -2282,6 +2296,24 @@ export default function StudioPage() {
 
             {/* Relationship lines */}
             <svg style={{ position: "absolute", left: edgeBounds.left, top: edgeBounds.top, width: edgeBounds.width, height: edgeBounds.height, pointerEvents: "none", zIndex: 1 }}>
+              <defs>
+                {/* Crow's foot (many) marker — points right */}
+                <marker id="crowfoot-right" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+                  <line x1="10" y1="6" x2="2" y2="1" stroke="var(--accent-soft)" strokeWidth="1.5" />
+                  <line x1="10" y1="6" x2="2" y2="6" stroke="var(--accent-soft)" strokeWidth="1.5" />
+                  <line x1="10" y1="6" x2="2" y2="11" stroke="var(--accent-soft)" strokeWidth="1.5" />
+                </marker>
+                {/* Crow's foot (many) marker — points left (for markerStart) */}
+                <marker id="crowfoot-left" markerWidth="12" markerHeight="12" refX="2" refY="6" orient="auto-start-reverse" markerUnits="strokeWidth">
+                  <line x1="2" y1="6" x2="10" y2="1" stroke="var(--accent-soft)" strokeWidth="1.5" />
+                  <line x1="2" y1="6" x2="10" y2="6" stroke="var(--accent-soft)" strokeWidth="1.5" />
+                  <line x1="2" y1="6" x2="10" y2="11" stroke="var(--accent-soft)" strokeWidth="1.5" />
+                </marker>
+                {/* Simple arrow for one-way */}
+                <marker id="arrow-end" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+                  <path d="M1,1 L9,4 L1,7" fill="none" stroke="var(--accent-soft)" strokeWidth="1.5" />
+                </marker>
+              </defs>
               {allRels.map((rel, i) => {
                 const from = nodes[rel.from], to = nodes[rel.to];
                 if (!from || !to) return null;
@@ -2303,6 +2335,7 @@ export default function StudioPage() {
                   edgeBounds.left,
                   edgeBounds.top
                 );
+                const isTwoWay = !!rel.toAttrKey;
                 return (
                   <motion.path
                     key={rel.id}
@@ -2313,6 +2346,8 @@ export default function StudioPage() {
                     strokeLinejoin="round"
                     strokeLinecap="round"
                     opacity={0.85}
+                    markerStart={isTwoWay ? "url(#crowfoot-left)" : undefined}
+                    markerEnd={isTwoWay ? "url(#crowfoot-right)" : "url(#arrow-end)"}
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: 0.85 }}
                     transition={{ duration: 0.35, delay: Math.min(i * 0.02, 0.18), ease: "easeOut" }}
@@ -2400,58 +2435,66 @@ export default function StudioPage() {
                     <Table2 size={14} style={{ color: isDrop ? "#10b981" : isSel ? "var(--accent-soft)" : "var(--muted-2)", flexShrink: 0 }} />
                     <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.label}</span>
                     <span style={{ fontSize: 10, color: "var(--muted-2)", fontFamily: "monospace", background: "var(--surface)", padding: "1px 6px", borderRadius: 4 }}>{attrs.length}</span>
-
-                    {/* Fixed header ports for non two-way targets: left, top, right */}
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: -4,
-                        top: "50%",
-                        width: 8,
-                        height: 8,
-                        transform: "translateY(-50%)",
-                        borderRadius: "50%",
-                        background: "var(--accent-soft)",
-                        border: "1px solid var(--panel-elev)",
-                        boxShadow: "0 0 0 1px var(--accent-soft-bg)",
-                      }}
-                    />
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: -4,
-                        left: "50%",
-                        width: 8,
-                        height: 8,
-                        transform: "translateX(-50%)",
-                        borderRadius: "50%",
-                        background: "var(--accent-soft)",
-                        border: "1px solid var(--panel-elev)",
-                        boxShadow: "0 0 0 1px var(--accent-soft-bg)",
-                      }}
-                    />
-                    <span
-                      style={{
-                        position: "absolute",
-                        right: -4,
-                        top: "50%",
-                        width: 8,
-                        height: 8,
-                        transform: "translateY(-50%)",
-                        borderRadius: "50%",
-                        background: "var(--accent-soft)",
-                        border: "1px solid var(--panel-elev)",
-                        boxShadow: "0 0 0 1px var(--accent-soft-bg)",
-                      }}
-                    />
                   </div>
-                  {/* Rows */}
+                  {/* $id row */}
+                  <div style={{ padding: 0, borderBottom: "1px solid var(--panel-border)" }}>
+                    {SYS_ATTR_TOP.map((sa, sIdx) => (
+                      <div
+                        key={sa.key}
+                        style={{
+                          position: "relative",
+                          height: ATTR_ROW,
+                          boxSizing: "border-box",
+                          display: "flex", alignItems: "center", gap: 8, padding: "0 14px", fontSize: 12,
+                          color: "var(--muted-2)",
+                          background: sIdx % 2 === 0 ? "transparent" : "rgba(107,114,128,0.08)",
+                          opacity: 0.55,
+                        }}
+                      >
+                        <Key size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sa.key}</span>
+                        <span style={{ fontSize: 9, fontFamily: "monospace", textTransform: "uppercase", opacity: 0.7 }}>{sa.type.substring(0, 4)}</span>
+                        {/* Port dots for $id — one-way relationships connect here */}
+                        <span
+                          style={{
+                            position: "absolute",
+                            left: -4,
+                            top: "50%",
+                            width: 8,
+                            height: 8,
+                            transform: "translateY(-50%)",
+                            borderRadius: "50%",
+                            background: "#6b7280",
+                            border: "1px solid var(--panel-elev)",
+                            boxShadow: "0 0 0 1px rgba(107,114,128,0.15)",
+                          }}
+                        />
+                        <span
+                          style={{
+                            position: "absolute",
+                            right: -4,
+                            top: "50%",
+                            width: 8,
+                            height: 8,
+                            transform: "translateY(-50%)",
+                            borderRadius: "50%",
+                            background: "#6b7280",
+                            border: "1px solid var(--panel-elev)",
+                            boxShadow: "0 0 0 1px rgba(107,114,128,0.15)",
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {/* User attributes */}
                   <div style={{ padding: 0 }}>
                     {attrs.length === 0 ? (
                       <div style={{ padding: "10px 14px", fontSize: 11, color: "var(--text-dim)", fontStyle: "italic" }}>
                         {isDrop ? "Drop to add" : "No attributes"}
                       </div>
-                    ) : attrs.map((a, idx) => (
+                    ) : attrs.map((a, idx) => {
+                      const globalIdx = SYS_ATTR_TOP.length + idx;
+                      return (
                       <div
                         key={a.key}
                         onClick={e => { e.stopPropagation(); setSelCol(collections.find(c => c.$id === node.id) ?? null); setSelAttr(a); }}
@@ -2463,7 +2506,7 @@ export default function StudioPage() {
                           color: selAttr?.key === a.key && selCol?.$id === node.id ? "var(--text)" : "var(--muted)",
                           background: selAttr?.key === a.key && selCol?.$id === node.id
                             ? "rgba(99,102,241,0.1)"
-                            : idx % 2 === 0 ? "transparent" : "var(--accent-soft-bg)",
+                            : globalIdx % 2 === 0 ? "transparent" : "rgba(107,114,128,0.08)",
                           cursor: "pointer", transition: "background 0.1s",
                         }}
                       >
@@ -2504,7 +2547,31 @@ export default function StudioPage() {
                           </>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
+                  </div>
+                  {/* $createdAt / $updatedAt rows */}
+                  <div style={{ padding: 0, borderTop: "1px solid var(--panel-border)" }}>
+                    {SYS_ATTR_BOTTOM.map((sa, sIdx) => {
+                      const globalIdx = SYS_ATTR_TOP.length + Math.max(1, attrs.length) + sIdx;
+                      return (
+                      <div
+                        key={sa.key}
+                        style={{
+                          height: ATTR_ROW,
+                          boxSizing: "border-box",
+                          display: "flex", alignItems: "center", gap: 8, padding: "0 14px", fontSize: 12,
+                          color: "var(--muted-2)",
+                          background: globalIdx % 2 === 0 ? "transparent" : "rgba(107,114,128,0.08)",
+                          opacity: 0.55,
+                        }}
+                      >
+                        <Key size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sa.key}</span>
+                        <span style={{ fontSize: 9, fontFamily: "monospace", textTransform: "uppercase", opacity: 0.7 }}>{sa.type.substring(0, 4)}</span>
+                      </div>
+                      );
+                    })}
                   </div>
                 </motion.div>
               );
@@ -2633,7 +2700,7 @@ export default function StudioPage() {
                       ...S.tabBtn,
                       background: tab === t ? "rgba(99,102,241,0.1)" : "transparent",
                       color: tab === t ? "#a5b4fc" : "#475569",
-                      borderBottom: tab === t ? "2px solid #6366f1" : "2px solid transparent",
+                      borderBottom: "none",
                     }}>
                       {t === "schema" ? <Columns3 size={12} /> : t === "permissions" ? <Key size={12} /> : <Key size={12} />}
                       {t === "permissions" ? "Perms" : t === "indexes" ? "Idx" : "Schema"}
