@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import JSZip from "jszip";
+import { Query } from "appwrite";
 import { toast, Toaster } from "sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -1536,17 +1537,37 @@ export default function StudioPage() {
     if (!silent && !append) setBusy(true);
 
     try {
-      const queries = [`limit(${ATTR_PAGE_SIZE})`];
-      if (cursorAfter) queries.push(`cursorAfter(${JSON.stringify(cursorAfter)})`);
+      let list: Attribute[] = [];
+      let total: number | undefined;
 
-      const d = await api("listAttributes", {
-        databaseId: dbId,
-        collectionId: colId,
-        queries,
-      });
+      try {
+        const queries = [Query.limit(ATTR_PAGE_SIZE)];
+        if (cursorAfter) queries.push(Query.cursorAfter(cursorAfter));
 
-      const list: Attribute[] = d?.attributes ?? [];
-      const total = typeof d?.total === "number" ? d.total : undefined;
+        const d = await api("listAttributes", {
+          databaseId: dbId,
+          collectionId: colId,
+          queries,
+        });
+
+        list = d?.attributes ?? [];
+        total = typeof d?.total === "number" ? d.total : undefined;
+      } catch (err: any) {
+        const msg = String(err?.message ?? "").toLowerCase();
+        const isQuerySyntaxError = msg.includes("invalid") && (msg.includes("query") || msg.includes("syntax") || msg.includes("param"));
+        if (!isQuerySyntaxError) throw err;
+
+        const allData = await api("listAttributes", { databaseId: dbId, collectionId: colId });
+        const allList: Attribute[] = allData?.attributes ?? [];
+
+        if (append) {
+          const start = attributeLoadedCount;
+          list = allList.slice(start, start + ATTR_PAGE_SIZE);
+        } else {
+          list = allList.slice(0, ATTR_PAGE_SIZE);
+        }
+        total = allList.length;
+      }
 
       if (append) {
         setAttributes((prev) => {
@@ -1601,8 +1622,8 @@ export default function StudioPage() {
         const all: Attribute[] = [];
 
         while (true) {
-          const queries = [`limit(${ATTR_PAGE_SIZE})`];
-          if (cursorAfter) queries.push(`cursorAfter(${JSON.stringify(cursorAfter)})`);
+          const queries = [Query.limit(ATTR_PAGE_SIZE)];
+          if (cursorAfter) queries.push(Query.cursorAfter(cursorAfter));
 
           const d = await api("listAttributes", {
             databaseId: dbId,
