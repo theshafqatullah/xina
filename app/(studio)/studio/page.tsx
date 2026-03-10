@@ -2226,6 +2226,52 @@ export default function StudioPage() {
     zoomToPoint(anchor.x, anchor.y, 1);
   }, [zoomToPoint]);
 
+  const homeViewport = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  const fitViewportToContent = useCallback(() => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const canvasNodes = Object.values(nodes);
+    if (!canvasNodes.length) {
+      homeViewport();
+      return;
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const node of canvasNodes) {
+      const attrs = allAttrs[node.id] ?? [];
+      const h = nodeH(attrs.length);
+      minX = Math.min(minX, node.x);
+      minY = Math.min(minY, node.y);
+      maxX = Math.max(maxX, node.x + NODE_W);
+      maxY = Math.max(maxY, node.y + h);
+    }
+
+    const padding = 120;
+    const contentWidth = Math.max(1, maxX - minX);
+    const contentHeight = Math.max(1, maxY - minY);
+    const fitW = Math.max(80, rect.width - padding * 2);
+    const fitH = Math.max(80, rect.height - padding * 2);
+    const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(fitW / contentWidth, fitH / contentHeight)));
+
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+
+    setZoom(nextZoom);
+    setPan({
+      x: rect.width / 2 - cx * nextZoom,
+      y: rect.height / 2 - cy * nextZoom,
+    });
+  }, [allAttrs, homeViewport, nodes]);
+
   /* ─── Canvas interactions ─── */
   const onCanvasDragOver = (e: React.DragEvent) => e.preventDefault();
 
@@ -2423,6 +2469,11 @@ export default function StudioPage() {
 
       const plusPressed = e.key === "+" || e.key === "=";
       const minusPressed = e.key === "-" || e.key === "_";
+      const fitPressed = e.key.toLowerCase() === "f" || (e.shiftKey && e.key === "1");
+
+      if ((e.metaKey || e.ctrlKey) && (plusPressed || minusPressed || e.key === "0" || e.key === "1")) {
+        e.preventDefault();
+      }
 
       if (plusPressed) {
         e.preventDefault();
@@ -2430,9 +2481,18 @@ export default function StudioPage() {
       } else if (minusPressed) {
         e.preventDefault();
         zoomByFactorAt(1 / 1.15);
-      } else if (e.key === "0") {
+      } else if (e.key === "1") {
         e.preventDefault();
         resetViewport();
+      } else if (e.key === "0") {
+        e.preventDefault();
+        fitViewportToContent();
+      } else if (fitPressed) {
+        e.preventDefault();
+        fitViewportToContent();
+      } else if (e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        homeViewport();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setPan((prev) => ({ x: prev.x, y: prev.y + (e.shiftKey ? KEYBOARD_PAN_STEP * 2 : KEYBOARD_PAN_STEP) }));
@@ -2452,13 +2512,21 @@ export default function StudioPage() {
       if (e.code === "Space") setSpacePressed(false);
     };
 
+    const onBlur = () => {
+      setSpacePressed(false);
+      setPanning(null);
+      panClientRef.current = null;
+    };
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
     };
-  }, [modal, resetViewport, zoomByFactorAt]);
+  }, [fitViewportToContent, homeViewport, modal, resetViewport, zoomByFactorAt]);
 
   /* ─── Relationship line geometry ─── */
   const edgeAnchor = (
@@ -3764,12 +3832,32 @@ export default function StudioPage() {
             style={S.zoomBar}
           >
             <button title="Zoom in (+)" onClick={() => zoomByFactorAt(1.2)} style={S.zoomBtn}><ZoomIn size={14} /></button>
-            <button title="Reset view (0)" onClick={resetViewport} style={{ ...S.zoomBtn, width: 44, fontSize: 11 }}>{Math.round(zoom * 100)}%</button>
+            <button title="Actual size (1)" onClick={resetViewport} style={{ ...S.zoomBtn, width: 44, fontSize: 11 }}>{Math.round(zoom * 100)}%</button>
             <button title="Zoom out (-)" onClick={() => zoomByFactorAt(1 / 1.2)} style={S.zoomBtn}><ZoomOut size={14} /></button>
             <div style={{ width: 1, height: 16, background: "var(--panel-border)" }} />
-            <button title="Center canvas" onClick={resetViewport} style={S.zoomBtn}><Home size={14} /></button>
+            <button title="Fit content (0 / F)" onClick={fitViewportToContent} style={S.zoomBtn}><Search size={14} /></button>
+            <button title="Home (H)" onClick={homeViewport} style={S.zoomBtn}><Home size={14} /></button>
             <button title="Reset pan only" onClick={() => setPan({ x: 0, y: 0 })} style={S.zoomBtn}><Maximize2 size={14} /></button>
           </motion.div>
+          <div
+            style={{
+              position: "absolute",
+              right: 22,
+              bottom: 66,
+              fontSize: 11,
+              color: "var(--muted-2)",
+              background: "var(--panel-float)",
+              border: "1px solid var(--panel-border)",
+              borderRadius: 999,
+              padding: "6px 10px",
+              backdropFilter: "blur(8px)",
+              pointerEvents: "none",
+              userSelect: "none",
+              zIndex: 12,
+            }}
+          >
+            Space + Drag: Pan • Ctrl/Cmd + Wheel: Zoom • 0/F: Fit • 1: 100%
+          </div>
         </div>
       </main>
 
