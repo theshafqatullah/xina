@@ -1109,7 +1109,8 @@ export default function StudioPage() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [attributeTotal, setAttributeTotal] = useState(0);
-  const [attributeOffset, setAttributeOffset] = useState(0);
+  const [attributeCursorAfter, setAttributeCursorAfter] = useState<string | null>(null);
+  const [attributeLoadedCount, setAttributeLoadedCount] = useState(0);
   const [attributeHasMore, setAttributeHasMore] = useState(false);
   const [attributeLoadingMore, setAttributeLoadingMore] = useState(false);
   const [documents, setDocuments] = useState<DocumentT[]>([]);
@@ -1211,7 +1212,8 @@ export default function StudioPage() {
     setCollections([]);
     setAttributes([]);
     setAttributeTotal(0);
-    setAttributeOffset(0);
+    setAttributeCursorAfter(null);
+    setAttributeLoadedCount(0);
     setAttributeHasMore(false);
     setAttributeLoadingMore(false);
     setDocuments([]);
@@ -1524,20 +1526,23 @@ export default function StudioPage() {
   const loadAttributes = useCallback(async (
     dbId: string,
     colId: string,
-    opts?: LoadOpts & { append?: boolean; offset?: number }
+    opts?: LoadOpts & { append?: boolean; cursorAfter?: string | null }
   ) => {
     const silent = !!opts?.silent;
     const append = !!opts?.append;
-    const offset = opts?.offset ?? 0;
+    const cursorAfter = opts?.cursorAfter ?? null;
 
     if (append) setAttributeLoadingMore(true);
     if (!silent && !append) setBusy(true);
 
     try {
+      const queries = [`limit(${ATTR_PAGE_SIZE})`];
+      if (cursorAfter) queries.push(`cursorAfter(${JSON.stringify(cursorAfter)})`);
+
       const d = await api("listAttributes", {
         databaseId: dbId,
         collectionId: colId,
-        queries: [`limit(${ATTR_PAGE_SIZE})`, `offset(${offset})`],
+        queries,
       });
 
       const list: Attribute[] = d?.attributes ?? [];
@@ -1553,18 +1558,20 @@ export default function StudioPage() {
         setAttributes(list);
       }
 
-      const nextOffset = offset + list.length;
-      setAttributeOffset(nextOffset);
-      const resolvedTotal = typeof total === "number" ? total : nextOffset + (list.length === ATTR_PAGE_SIZE ? 1 : 0);
+      const loadedCount = append ? attributeLoadedCount + list.length : list.length;
+      const nextCursor = list.length ? list[list.length - 1]?.key ?? null : cursorAfter;
+      setAttributeCursorAfter(nextCursor);
+      setAttributeLoadedCount(loadedCount);
+      const resolvedTotal = typeof total === "number" ? total : loadedCount + (list.length === ATTR_PAGE_SIZE ? 1 : 0);
       setAttributeTotal(resolvedTotal);
-      setAttributeHasMore(typeof total === "number" ? nextOffset < total : list.length === ATTR_PAGE_SIZE);
+      setAttributeHasMore(typeof total === "number" ? loadedCount < total : list.length === ATTR_PAGE_SIZE);
       return list;
     } catch (e: any) { toast.error(e.message); }
     finally {
       if (!silent && !append) setBusy(false);
       if (append) setAttributeLoadingMore(false);
     }
-  }, [api]);
+  }, [api, attributeLoadedCount]);
 
   const loadDocuments = useCallback(async (dbId: string, colId: string, opts?: LoadOpts) => {
     const silent = !!opts?.silent;
@@ -1590,23 +1597,26 @@ export default function StudioPage() {
     const result: Record<string, Attribute[]> = {};
     await Promise.all(cols.map(async (col) => {
       try {
-        let offset = 0;
+        let cursorAfter: string | null = null;
         const all: Attribute[] = [];
 
         while (true) {
+          const queries = [`limit(${ATTR_PAGE_SIZE})`];
+          if (cursorAfter) queries.push(`cursorAfter(${JSON.stringify(cursorAfter)})`);
+
           const d = await api("listAttributes", {
             databaseId: dbId,
             collectionId: col.$id,
-            queries: [`limit(${ATTR_PAGE_SIZE})`, `offset(${offset})`],
+            queries,
           });
           const list: Attribute[] = d?.attributes ?? [];
           all.push(...list);
 
           const total = typeof d?.total === "number" ? d.total : undefined;
-          offset += list.length;
+          cursorAfter = list.length ? list[list.length - 1]?.key ?? null : cursorAfter;
           if (!list.length) break;
           if (typeof total === "number") {
-            if (offset >= total) break;
+            if (all.length >= total) break;
           } else if (list.length < ATTR_PAGE_SIZE) {
             break;
           }
@@ -1620,8 +1630,8 @@ export default function StudioPage() {
 
   const loadMoreAttributes = useCallback(async () => {
     if (!selDb || !selCol || !attributeHasMore || attributeLoadingMore) return;
-    await loadAttributes(selDb.$id, selCol.$id, { silent: true, append: true, offset: attributeOffset });
-  }, [attributeHasMore, attributeLoadingMore, attributeOffset, loadAttributes, selCol, selDb]);
+    await loadAttributes(selDb.$id, selCol.$id, { silent: true, append: true, cursorAfter: attributeCursorAfter });
+  }, [attributeCursorAfter, attributeHasMore, attributeLoadingMore, loadAttributes, selCol, selDb]);
 
   const refreshSchemaSilent = useCallback(async () => {
     const dbList = (await loadDatabases({ silent: true })) ?? [];
@@ -1669,9 +1679,14 @@ export default function StudioPage() {
   useEffect(() => {
     if (selDb && selCol) {
       loadAttributes(selDb.$id, selCol.$id, { silent: true });
-      if (tab === "indexes") loadIndexes(selDb.$id, selCol.$id, { silent: true });
     }
-  }, [selDb?.$id, selCol?.$id, tab]);
+  }, [loadAttributes, selDb?.$id, selCol?.$id]);
+
+  useEffect(() => {
+    if (selDb && selCol && tab === "indexes") {
+      loadIndexes(selDb.$id, selCol.$id, { silent: true });
+    }
+  }, [loadIndexes, selDb?.$id, selCol?.$id, tab]);
   useEffect(() => {
     if (selDb && collections.length > 0) loadAllAttributes(selDb.$id, collections);
   }, [selDb?.$id, collections.length]);
