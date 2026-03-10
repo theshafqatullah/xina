@@ -1029,6 +1029,9 @@ const GRID = 20;
 const PANEL_MARGIN = 10;
 const LEFT_PANEL_WIDTH = 280;
 const RIGHT_PANEL_WIDTH = 320;
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 3;
+const KEYBOARD_PAN_STEP = 48;
 const nodeH = (n: number) => NODE_HEADER + SYS_ATTR_TOP.length * ATTR_ROW + Math.max(1, n) * ATTR_ROW + SYS_ATTR_BOTTOM.length * ATTR_ROW;
 
 function filled(v: unknown): v is string { return typeof v === "string" && v.trim().length > 0; }
@@ -1131,6 +1134,9 @@ export default function StudioPage() {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panning, setPanning] = useState<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [spacePressed, setSpacePressed] = useState(false);
+  const dragClientRef = useRef<{ x: number; y: number } | null>(null);
+  const panClientRef = useRef<{ x: number; y: number } | null>(null);
 
   const [editName, setEditName] = useState("");
   const [permissionGrants, setPermissionGrants] = useState<PermissionGrant[]>([]);
@@ -2185,6 +2191,41 @@ export default function StudioPage() {
     }
   };
 
+  const zoomToPoint = useCallback((clientX: number, clientY: number, targetZoom: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) {
+      setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, targetZoom)));
+      return;
+    }
+    const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, targetZoom));
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+    const worldX = (localX - pan.x) / zoom;
+    const worldY = (localY - pan.y) / zoom;
+
+    setPan({
+      x: localX - worldX * nextZoom,
+      y: localY - worldY * nextZoom,
+    });
+    setZoom(nextZoom);
+  }, [pan.x, pan.y, zoom]);
+
+  const zoomByFactorAt = useCallback((factor: number, point?: { x: number; y: number }) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const anchor = point ?? (rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    zoomToPoint(anchor.x, anchor.y, zoom * factor);
+  }, [zoom, zoomToPoint]);
+
+  const resetViewport = useCallback(() => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const anchor = rect
+      ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    zoomToPoint(anchor.x, anchor.y, 1);
+  }, [zoomToPoint]);
+
   /* ─── Canvas interactions ─── */
   const onCanvasDragOver = (e: React.DragEvent) => e.preventDefault();
 
@@ -2249,6 +2290,7 @@ export default function StudioPage() {
     if (!n) return;
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
+    dragClientRef.current = { x: e.clientX, y: e.clientY };
     setDrag({ id, ox: (e.clientX - rect.left - pan.x) / zoom - n.x, oy: (e.clientY - rect.top - pan.y) / zoom - n.y });
     const col = collections.find(c => c.$id === id);
     if (col) { setSelCol(col); setSelAttr(null); }
@@ -2256,19 +2298,35 @@ export default function StudioPage() {
 
   useEffect(() => {
     if (!drag) return;
-    const move = (e: PointerEvent) => {
+    let rafId: number | null = null;
+
+    const applyMove = () => {
+      rafId = null;
+      const pointer = dragClientRef.current;
+      if (!pointer) return;
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
       setNodes(prev => ({
         ...prev,
         [drag.id]: {
           ...prev[drag.id],
-          x: (e.clientX - rect.left - pan.x) / zoom - drag.ox,
-          y: (e.clientY - rect.top - pan.y) / zoom - drag.oy,
+          x: (pointer.x - rect.left - pan.x) / zoom - drag.ox,
+          y: (pointer.y - rect.top - pan.y) / zoom - drag.oy,
         },
       }));
     };
+
+    const move = (e: PointerEvent) => {
+      dragClientRef.current = { x: e.clientX, y: e.clientY };
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(applyMove);
+    };
     const up = () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      dragClientRef.current = null;
       setNodes((prev) => {
         const moving = prev[drag.id];
         if (!moving) return prev;
@@ -2281,28 +2339,68 @@ export default function StudioPage() {
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
-    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
   }, [drag, layoutScopeConnectionId, pan, persistNodesForDb, resolveFreeNodePosition, selDb, zoom]);
 
   const onCanvasPointerDown = (e: React.PointerEvent) => {
     setSelCol(null); setSelAttr(null);
-    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+    if (e.button === 1 || (e.button === 0 && (e.shiftKey || spacePressed))) {
+      e.preventDefault();
+      panClientRef.current = { x: e.clientX, y: e.clientY };
       setPanning({ sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y });
     }
   };
 
   useEffect(() => {
     if (!panning) return;
-    const move = (e: PointerEvent) => { setPan({ x: panning.px + (e.clientX - panning.sx), y: panning.py + (e.clientY - panning.sy) }); };
-    const up = () => setPanning(null);
+    let rafId: number | null = null;
+
+    const applyMove = () => {
+      rafId = null;
+      const pointer = panClientRef.current;
+      if (!pointer) return;
+      setPan({
+        x: panning.px + (pointer.x - panning.sx),
+        y: panning.py + (pointer.y - panning.sy),
+      });
+    };
+
+    const move = (e: PointerEvent) => {
+      panClientRef.current = { x: e.clientX, y: e.clientY };
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(applyMove);
+    };
+    const up = () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      panClientRef.current = null;
+      setPanning(null);
+    };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
-    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
   }, [panning]);
 
   const onCanvasWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    setZoom(z => Math.min(3, Math.max(0.2, z * (e.deltaY > 0 ? 0.9 : 1.1))));
+    if (e.metaKey || e.ctrlKey) {
+      const factor = Math.exp(-e.deltaY * 0.002);
+      zoomByFactorAt(factor, { x: e.clientX, y: e.clientY });
+      return;
+    }
+
+    // Default wheel/trackpad motion pans the canvas like design tools.
+    setPan((prev) => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
   };
 
   useEffect(() => {
@@ -2317,19 +2415,50 @@ export default function StudioPage() {
 
       if (typing) return;
 
-      if (e.key === "+" || e.key === "=") {
-        setZoom((z) => Math.min(3, z * 1.15));
-      } else if (e.key === "-") {
-        setZoom((z) => Math.max(0.2, z * 0.85));
+      if (e.code === "Space") {
+        e.preventDefault();
+        setSpacePressed(true);
+        return;
+      }
+
+      const plusPressed = e.key === "+" || e.key === "=";
+      const minusPressed = e.key === "-" || e.key === "_";
+
+      if (plusPressed) {
+        e.preventDefault();
+        zoomByFactorAt(1.15);
+      } else if (minusPressed) {
+        e.preventDefault();
+        zoomByFactorAt(1 / 1.15);
       } else if (e.key === "0") {
-        setZoom(1);
-        setPan({ x: 0, y: 0 });
+        e.preventDefault();
+        resetViewport();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setPan((prev) => ({ x: prev.x, y: prev.y + (e.shiftKey ? KEYBOARD_PAN_STEP * 2 : KEYBOARD_PAN_STEP) }));
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setPan((prev) => ({ x: prev.x, y: prev.y - (e.shiftKey ? KEYBOARD_PAN_STEP * 2 : KEYBOARD_PAN_STEP) }));
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setPan((prev) => ({ x: prev.x + (e.shiftKey ? KEYBOARD_PAN_STEP * 2 : KEYBOARD_PAN_STEP), y: prev.y }));
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setPan((prev) => ({ x: prev.x - (e.shiftKey ? KEYBOARD_PAN_STEP * 2 : KEYBOARD_PAN_STEP), y: prev.y }));
       }
     };
 
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") setSpacePressed(false);
+    };
+
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [modal]);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [modal, resetViewport, zoomByFactorAt]);
 
   /* ─── Relationship line geometry ─── */
   const edgeAnchor = (
@@ -3333,7 +3462,7 @@ export default function StudioPage() {
           style={{
             position: "absolute", inset: 0, overflow: "hidden",
             background: "transparent",
-            cursor: panning ? "grabbing" : drag ? "grabbing" : "default",
+            cursor: panning ? "grabbing" : drag ? "grabbing" : spacePressed ? "grab" : "default",
           }}
         >
           {/* Zoom/pan layer */}
@@ -3634,11 +3763,12 @@ export default function StudioPage() {
             transition={{ duration: 0.25, ease: "easeOut" }}
             style={S.zoomBar}
           >
-            <button onClick={() => setZoom(z => Math.min(3, z * 1.2))} style={S.zoomBtn}><ZoomIn size={14} /></button>
-            <button onClick={() => setZoom(1)} style={{ ...S.zoomBtn, width: 44, fontSize: 11 }}>{Math.round(zoom * 100)}%</button>
-            <button onClick={() => setZoom(z => Math.max(0.2, z * 0.8))} style={S.zoomBtn}><ZoomOut size={14} /></button>
+            <button title="Zoom in (+)" onClick={() => zoomByFactorAt(1.2)} style={S.zoomBtn}><ZoomIn size={14} /></button>
+            <button title="Reset view (0)" onClick={resetViewport} style={{ ...S.zoomBtn, width: 44, fontSize: 11 }}>{Math.round(zoom * 100)}%</button>
+            <button title="Zoom out (-)" onClick={() => zoomByFactorAt(1 / 1.2)} style={S.zoomBtn}><ZoomOut size={14} /></button>
             <div style={{ width: 1, height: 16, background: "var(--panel-border)" }} />
-            <button onClick={() => setPan({ x: 0, y: 0 })} style={S.zoomBtn}><Maximize2 size={14} /></button>
+            <button title="Center canvas" onClick={resetViewport} style={S.zoomBtn}><Home size={14} /></button>
+            <button title="Reset pan only" onClick={() => setPan({ x: 0, y: 0 })} style={S.zoomBtn}><Maximize2 size={14} /></button>
           </motion.div>
         </div>
       </main>
