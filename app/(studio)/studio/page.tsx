@@ -22,6 +22,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -105,6 +106,8 @@ type LanguageOpt = {
 };
 
 type LoadOpts = { silent?: boolean };
+
+const ATTR_PAGE_SIZE = 25;
 
 type PermissionAction = "read" | "create" | "update" | "delete";
 type PermissionSubject = "any" | "guests" | "users" | "user" | "team" | "teamRole" | "member" | "label";
@@ -1055,6 +1058,41 @@ const envCfg: AppwriteConfig = {
 
 const CONNECTIONS_KEY = "xinaConnections";
 const ACTIVE_CONNECTION_KEY = "xinaActiveConnectionId";
+const NODE_LAYOUTS_KEY = "xinaNodeLayouts";
+const NODE_GAP = 24;
+
+type NodeLayoutMap = Record<string, Record<string, Record<string, { x: number; y: number }>>>;
+
+function normalizePoint(p: { x: number; y: number }) {
+  return {
+    x: Math.round(p.x / GRID) * GRID,
+    y: Math.round(p.y / GRID) * GRID,
+  };
+}
+
+function readNodeLayouts(): NodeLayoutMap {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(NODE_LAYOUTS_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeNodeLayouts(layouts: NodeLayoutMap) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(NODE_LAYOUTS_KEY, JSON.stringify(layouts));
+}
+
+function nodesOverlap(a: { x: number; y: number; h: number }, b: { x: number; y: number; h: number }) {
+  return (
+    a.x < b.x + NODE_W + NODE_GAP &&
+    a.x + NODE_W + NODE_GAP > b.x &&
+    a.y < b.y + b.h + NODE_GAP &&
+    a.y + a.h + NODE_GAP > b.y
+  );
+}
 
 /* ═══════════════════════════════════════════════════
    MAIN COMPONENT
@@ -1070,6 +1108,10 @@ export default function StudioPage() {
   const [databases, setDatabases] = useState<DatabaseT[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [attributes, setAttributes] = useState<Attribute[]>([]);
+  const [attributeTotal, setAttributeTotal] = useState(0);
+  const [attributeOffset, setAttributeOffset] = useState(0);
+  const [attributeHasMore, setAttributeHasMore] = useState(false);
+  const [attributeLoadingMore, setAttributeLoadingMore] = useState(false);
   const [documents, setDocuments] = useState<DocumentT[]>([]);
   const [indexes, setIndexes] = useState<IndexDef[]>([]);
   const [allAttrs, setAllAttrs] = useState<Record<string, Attribute[]>>({});
@@ -1103,11 +1145,75 @@ export default function StudioPage() {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const activeDbIdRef = useRef<string | null>(null);
   const [theme, setTheme] = useState<ThemeMode>("dark");
+  const nodesRef = useRef<Record<string, CanvasNode>>({});
+  const allAttrsRef = useRef<Record<string, Attribute[]>>({});
+
+  const layoutScopeConnectionId = useCallback(() => activeConnectionId || "default", [activeConnectionId]);
+
+  const getStoredDbLayout = useCallback((connectionId: string, dbId: string) => {
+    const layouts = readNodeLayouts();
+    return layouts?.[connectionId]?.[dbId] ?? {};
+  }, []);
+
+  const saveDbLayout = useCallback((connectionId: string, dbId: string, dbLayout: Record<string, { x: number; y: number }>) => {
+    const layouts = readNodeLayouts();
+    writeNodeLayouts({
+      ...layouts,
+      [connectionId]: {
+        ...(layouts[connectionId] ?? {}),
+        [dbId]: dbLayout,
+      },
+    });
+  }, []);
+
+  const persistNodesForDb = useCallback((connectionId: string, dbId: string, nextNodes: Record<string, CanvasNode>) => {
+    const dbLayout: Record<string, { x: number; y: number }> = {};
+    for (const node of Object.values(nextNodes)) {
+      if (node.dbId !== dbId) continue;
+      dbLayout[node.id] = normalizePoint({ x: node.x, y: node.y });
+    }
+    saveDbLayout(connectionId, dbId, dbLayout);
+  }, [saveDbLayout]);
+
+  const resolveFreeNodePosition = useCallback((
+    desired: { x: number; y: number },
+    nodeId: string,
+    working: Record<string, CanvasNode>
+  ) => {
+    const start = normalizePoint(desired);
+    const attrs = allAttrsRef.current[nodeId] ?? [];
+    const targetH = nodeH(attrs.length);
+
+    const collides = (x: number, y: number) => {
+      for (const n of Object.values(working)) {
+        if (n.id === nodeId) continue;
+        const h = nodeH((allAttrsRef.current[n.id] ?? []).length);
+        if (nodesOverlap({ x, y, h: targetH }, { x: n.x, y: n.y, h })) return true;
+      }
+      return false;
+    };
+
+    if (!collides(start.x, start.y)) return start;
+
+    const stride = GRID * 2;
+    const cols = 18;
+    for (let i = 1; i <= 900; i++) {
+      const x = start.x + (i % cols) * stride;
+      const y = start.y + Math.floor(i / cols) * stride;
+      if (!collides(x, y)) return { x, y };
+    }
+
+    return start;
+  }, []);
 
   const clearWorkspaceState = useCallback(() => {
     setDatabases([]);
     setCollections([]);
     setAttributes([]);
+    setAttributeTotal(0);
+    setAttributeOffset(0);
+    setAttributeHasMore(false);
+    setAttributeLoadingMore(false);
     setDocuments([]);
     setIndexes([]);
     setAllAttrs({});
@@ -1118,6 +1224,14 @@ export default function StudioPage() {
     setNodes({});
     activeDbIdRef.current = null;
   }, []);
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  useEffect(() => {
+    allAttrsRef.current = allAttrs;
+  }, [allAttrs]);
 
   /* ─── Persist config ─── */
   const saveCfg = (c: AppwriteConfig) => {
@@ -1185,6 +1299,15 @@ export default function StudioPage() {
 
   const removeConnection = useCallback(() => {
     if (!activeConnectionId) { toast.error("Select a connection first"); return; }
+
+    try {
+      const layouts = readNodeLayouts();
+      if (layouts[activeConnectionId]) {
+        const { [activeConnectionId]: _removed, ...rest } = layouts;
+        writeNodeLayouts(rest);
+      }
+    } catch {}
+
     const next = connections.filter((c) => c.id !== activeConnectionId);
     const nextActiveId = next[0]?.id ?? null;
     persistConnections(next, nextActiveId);
@@ -1364,40 +1487,83 @@ export default function StudioPage() {
         return list.find((c) => c.$id === prev.$id) ?? null;
       });
 
+      const connectionId = layoutScopeConnectionId();
+      const storedLayout = getStoredDbLayout(connectionId, dbId);
+
       setNodes((prev) => {
         const next: Record<string, CanvasNode> = {};
         list.forEach((c, index) => {
           const existing = prev[c.$id];
-          if (existing?.dbId === dbId) {
-            next[c.$id] = { ...existing, label: c.name };
-            return;
-          }
+          const stored = storedLayout[c.$id];
+
+          const hasExact = existing?.dbId === dbId || !!stored;
+          const base = existing?.dbId === dbId
+            ? normalizePoint({ x: existing.x, y: existing.y })
+            : stored
+              ? normalizePoint({ x: stored.x, y: stored.y })
+              : { x: 80 + (index % 4) * 300, y: 80 + Math.floor(index / 4) * 220 };
+
+          const placed = hasExact ? base : resolveFreeNodePosition(base, c.$id, next);
           next[c.$id] = {
             id: c.$id,
             label: c.name,
             dbId,
-            x: 80 + (index % 4) * 300,
-            y: 80 + Math.floor(index / 4) * 220,
+            x: placed.x,
+            y: placed.y,
           };
         });
+
+        persistNodesForDb(connectionId, dbId, next);
         return next;
       });
       return list;
     } catch (e: any) { toast.error(e.message); }
     finally { if (!silent) setBusy(false); }
-  }, [api]);
+  }, [api, getStoredDbLayout, layoutScopeConnectionId, persistNodesForDb, resolveFreeNodePosition]);
 
-  const loadAttributes = useCallback(async (dbId: string, colId: string, opts?: LoadOpts) => {
+  const loadAttributes = useCallback(async (
+    dbId: string,
+    colId: string,
+    opts?: LoadOpts & { append?: boolean; offset?: number }
+  ) => {
     const silent = !!opts?.silent;
-    if (!silent) setBusy(true);
+    const append = !!opts?.append;
+    const offset = opts?.offset ?? 0;
+
+    if (append) setAttributeLoadingMore(true);
+    if (!silent && !append) setBusy(true);
+
     try {
-      const d = await api("listAttributes", { databaseId: dbId, collectionId: colId });
+      const d = await api("listAttributes", {
+        databaseId: dbId,
+        collectionId: colId,
+        queries: [`limit(${ATTR_PAGE_SIZE})`, `offset(${offset})`],
+      });
+
       const list: Attribute[] = d?.attributes ?? [];
-      setAttributes(list);
-      setAllAttrs(prev => ({ ...prev, [colId]: list }));
+      const total = typeof d?.total === "number" ? d.total : undefined;
+
+      if (append) {
+        setAttributes((prev) => {
+          const seen = new Set(prev.map((attr) => attr.key));
+          const nextPage = list.filter((attr) => !seen.has(attr.key));
+          return [...prev, ...nextPage];
+        });
+      } else {
+        setAttributes(list);
+      }
+
+      const nextOffset = offset + list.length;
+      setAttributeOffset(nextOffset);
+      const resolvedTotal = typeof total === "number" ? total : nextOffset + (list.length === ATTR_PAGE_SIZE ? 1 : 0);
+      setAttributeTotal(resolvedTotal);
+      setAttributeHasMore(typeof total === "number" ? nextOffset < total : list.length === ATTR_PAGE_SIZE);
       return list;
     } catch (e: any) { toast.error(e.message); }
-    finally { if (!silent) setBusy(false); }
+    finally {
+      if (!silent && !append) setBusy(false);
+      if (append) setAttributeLoadingMore(false);
+    }
   }, [api]);
 
   const loadDocuments = useCallback(async (dbId: string, colId: string, opts?: LoadOpts) => {
@@ -1424,13 +1590,38 @@ export default function StudioPage() {
     const result: Record<string, Attribute[]> = {};
     await Promise.all(cols.map(async (col) => {
       try {
-        const d = await api("listAttributes", { databaseId: dbId, collectionId: col.$id });
-        const list: Attribute[] = d?.attributes ?? [];
-        result[col.$id] = list;
+        let offset = 0;
+        const all: Attribute[] = [];
+
+        while (true) {
+          const d = await api("listAttributes", {
+            databaseId: dbId,
+            collectionId: col.$id,
+            queries: [`limit(${ATTR_PAGE_SIZE})`, `offset(${offset})`],
+          });
+          const list: Attribute[] = d?.attributes ?? [];
+          all.push(...list);
+
+          const total = typeof d?.total === "number" ? d.total : undefined;
+          offset += list.length;
+          if (!list.length) break;
+          if (typeof total === "number") {
+            if (offset >= total) break;
+          } else if (list.length < ATTR_PAGE_SIZE) {
+            break;
+          }
+        }
+
+        result[col.$id] = all;
       } catch { result[col.$id] = []; }
     }));
     setAllAttrs(result);
   }, [api]);
+
+  const loadMoreAttributes = useCallback(async () => {
+    if (!selDb || !selCol || !attributeHasMore || attributeLoadingMore) return;
+    await loadAttributes(selDb.$id, selCol.$id, { silent: true, append: true, offset: attributeOffset });
+  }, [attributeHasMore, attributeLoadingMore, attributeOffset, loadAttributes, selCol, selDb]);
 
   const refreshSchemaSilent = useCallback(async () => {
     const dbList = (await loadDatabases({ silent: true })) ?? [];
@@ -1577,6 +1768,24 @@ export default function StudioPage() {
     closeModal();
     try {
       await api("createCollection", { databaseId: selDb.$id, collectionId: id, name });
+
+      if (pos) {
+        const connectionId = layoutScopeConnectionId();
+        const layouts = readNodeLayouts();
+        const dbLayout = layouts?.[connectionId]?.[selDb.$id] ?? {};
+        const placed = resolveFreeNodePosition(pos, id, nodesRef.current);
+        writeNodeLayouts({
+          ...layouts,
+          [connectionId]: {
+            ...(layouts[connectionId] ?? {}),
+            [selDb.$id]: {
+              ...dbLayout,
+              [id]: normalizePoint(placed),
+            },
+          },
+        });
+      }
+
       toast.success(`Collection "${name}" created`);
       await refreshSchemaSilent();
       setSelCol({ $id: id, name });
@@ -1959,7 +2168,14 @@ export default function StudioPage() {
     } else if (payload.type === "new-database") {
       setMf({}); setModal({ kind: "createDb" });
     } else if (payload.type === "collection" && payload.id) {
-      setNodes(prev => ({ ...prev, [payload.id]: { ...prev[payload.id], x, y } }));
+      setNodes(prev => {
+        const node = prev[payload.id];
+        if (!node) return prev;
+        const placed = resolveFreeNodePosition({ x, y }, payload.id, prev);
+        const next = { ...prev, [payload.id]: { ...node, x: placed.x, y: placed.y } };
+        if (selDb) persistNodesForDb(layoutScopeConnectionId(), selDb.$id, next);
+        return next;
+      });
       setSelCol({ $id: payload.id, name: payload.name });
     } else if (payload.type === "attr-type" && payload.attrType) {
       const targetNode = nodeArr.find(n => {
@@ -2007,13 +2223,30 @@ export default function StudioPage() {
     const move = (e: PointerEvent) => {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setNodes(prev => ({ ...prev, [drag.id]: { ...prev[drag.id], x: (e.clientX - rect.left - pan.x) / zoom - drag.ox, y: (e.clientY - rect.top - pan.y) / zoom - drag.oy } }));
+      setNodes(prev => ({
+        ...prev,
+        [drag.id]: {
+          ...prev[drag.id],
+          x: (e.clientX - rect.left - pan.x) / zoom - drag.ox,
+          y: (e.clientY - rect.top - pan.y) / zoom - drag.oy,
+        },
+      }));
     };
-    const up = () => setDrag(null);
+    const up = () => {
+      setNodes((prev) => {
+        const moving = prev[drag.id];
+        if (!moving) return prev;
+        const placed = resolveFreeNodePosition({ x: moving.x, y: moving.y }, drag.id, prev);
+        const next = { ...prev, [drag.id]: { ...moving, x: placed.x, y: placed.y } };
+        if (selDb) persistNodesForDb(layoutScopeConnectionId(), selDb.$id, next);
+        return next;
+      });
+      setDrag(null);
+    };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
-  }, [drag, pan, zoom]);
+  }, [drag, layoutScopeConnectionId, pan, persistNodesForDb, resolveFreeNodePosition, selDb, zoom]);
 
   const onCanvasPointerDown = (e: React.PointerEvent) => {
     setSelCol(null); setSelAttr(null);
@@ -3643,7 +3876,7 @@ export default function StudioPage() {
                   <label style={S.label}>Overview</label>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
                     <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.1)" }}>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "#a5b4fc" }}>{attributes.length}</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#a5b4fc" }}>{attributeTotal || attributes.length}</div>
                       <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>Attributes</div>
                     </div>
                     <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.1)" }}>
@@ -3706,18 +3939,45 @@ export default function StudioPage() {
                     <div style={{ ...S.secH, marginTop: 12 }}>Attributes</div>
                     {attributes.length === 0 ? (
                       <div style={{ fontSize: 12, color: "#334155" }}>No attributes</div>
-                    ) : attributes.map(a => (
-                      <div key={a.key} style={S.listRow}>
-                        <button onClick={() => setSelAttr(a)} style={{ ...S.listBtn, flex: 1 }}>
-                          <TypeIcon type={a.type} size={13} />
-                          <span style={{ flex: 1 }}>{a.key}</span>
-                          <span style={{ fontSize: 10, color: typeColor(a.type), fontFamily: "monospace" }}>{a.type}</span>
-                        </button>
-                        <button onClick={() => setModal({ kind: "confirm", title: "Delete", message: `Delete "${a.key}"?`, onConfirm: () => doDeleteAttribute(a.key) })} style={S.delBtn}>
-                          <Trash2 size={11} />
-                        </button>
-                      </div>
-                    ))}
+                    ) : (
+                      <>
+                        {attributes.map(a => (
+                          <div key={a.key} style={S.listRow}>
+                            <button onClick={() => setSelAttr(a)} style={{ ...S.listBtn, flex: 1 }}>
+                              <TypeIcon type={a.type} size={13} />
+                              <span style={{ flex: 1 }}>{a.key}</span>
+                              <span style={{ fontSize: 10, color: typeColor(a.type), fontFamily: "monospace" }}>{a.type}</span>
+                            </button>
+                            <button onClick={() => setModal({ kind: "confirm", title: "Delete", message: `Delete "${a.key}"?`, onConfirm: () => doDeleteAttribute(a.key) })} style={S.delBtn}>
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        ))}
+                        {attributeHasMore && (
+                          <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                            <button
+                              type="button"
+                              onClick={loadMoreAttributes}
+                              disabled={attributeLoadingMore}
+                              title="Load more attributes"
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 999,
+                                border: "1px solid var(--panel-border)",
+                                background: "var(--panel-bg)",
+                                color: "var(--muted-2)",
+                                display: "grid",
+                                placeItems: "center",
+                                cursor: attributeLoadingMore ? "wait" : "pointer",
+                              }}
+                            >
+                              {attributeLoadingMore ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : <ChevronDown size={12} />}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </>
                 )}
 
