@@ -2,7 +2,218 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Display Font Family */
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-Thin.otf") format("opentype");
+  font-weight: 100;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-ThinItalic.otf") format("opentype");
+  font-weight: 100;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-Light.otf") format("opentype");
+  font-weight: 300;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-LightItalic.otf") format("opentype");
+  font-weight: 300;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-Regular.otf") format("opentype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-Medium.otf") format("opentype");
+  font-weight: 500;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-MediumItalic.otf") format("opentype");
+  font-weight: 500;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-Semibold.otf") format("opentype");
+  font-weight: 600;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-SemiboldItalic.otf") format("opentype");
+  font-weight: 600;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-Bold.otf") format("opentype");
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-BoldItalic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-Black.otf") format("opentype");
+  font-weight: 900;
+}
+
+@font-face {
+  font-family: "Degular Display";
+  src: url("/fonts/display/DegularDisplay-BlackItalic.otf") format("opentype");
+  font-weight: 900;
+  font-style: italic;
+}
+
+/* Text Font Family */
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-Thin.otf") format("opentype");
+  font-weight: 100;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-ThinItalic.otf") format("opentype");
+  font-weight: 100;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-Light.otf") format("opentype");
+  font-weight: 300;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-LightItalic.otf") format("opentype");
+  font-weight: 300;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-Regular.otf") format("opentype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-Medium.otf") format("opentype");
+  font-weight: 500;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-MediumItalic.otf") format("opentype");
+  font-weight: 500;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-Semibold.otf") format("opentype");
+  font-weight: 600;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-SemiboldItalic.otf") format("opentype");
+  font-weight: 600;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-Bold.otf") format("opentype");
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-BoldItalic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-Black.otf") format("opentype");
+  font-weight: 900;
+}
+
+@font-face {
+  font-family: "Degular Text";
+  src: url("/fonts/text/DegularText-BlackItalic.otf") format("opentype");
+  font-weight: 900;
+  font-style: italic;
+}
+
 @custom-variant dark (&:is(.dark *));
+
+/* Remove all border-radius and shadows */
+* {
+  border-radius: 0 !important;
+}
+
+button,
+a,
+div,
+span,
+input,
+select,
+textarea,
+[class*="rounded-"],
+[class*="shadow-"],
+[class*="shadow"],
+.shadow,
+.rounded-lg,
+.rounded-xl,
+.rounded-2xl,
+.rounded-3xl,
+.rounded-full,
+.rounded-md,
+.rounded-sm {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
 
 @theme inline {
   --color-background: var(--background);
@@ -62,9 +273,6 @@ body {
   background: rgba(255, 255, 255, 0.76);
   backdrop-filter: blur(18px);
   border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow:
-    0 20px 80px rgba(41, 52, 71, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .editor-topbar {
@@ -94,7 +302,6 @@ body {
 .editor-btn:hover {
   transform: translateY(-1px);
   background: #fffef8;
-  box-shadow: 0 10px 24px rgba(21, 24, 38, 0.12);
 }
 
 .editor-btn:active {
@@ -127,7 +334,6 @@ body {
 .layer-item.is-active {
   border-color: rgba(0, 0, 0, 0.25);
   background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
-  box-shadow: 0 8px 20px rgba(27, 36, 51, 0.08);
 }
 
 .canvas-grid {
@@ -159,9 +365,6 @@ body {
 
 .canvas-card:hover {
   transform: translateY(-2px);
-  box-shadow:
-    0 28px 44px rgba(17, 25, 40, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .canvas-card.is-selected {
@@ -206,11 +409,9 @@ body {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  border-radius: 999px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: rgba(255, 255, 255, 0.85);
   padding: 0.32rem 0.45rem;
-  box-shadow: 0 10px 24px rgba(16, 19, 34, 0.12);
 }
 
 .zoom-btn {

@@ -28,7 +28,7 @@ import {
 const SECTIONS = [
   {
     badge: "Canvas",
-    badgeColor: "indigo",
+    badgeColor: "purple",
     title: "Interactive ERD Canvas",
     desc: "A fully interactive entity-relationship diagram that auto-generates from your Appwrite schema. Drag collections, pan and zoom the canvas, and see every relationship at a glance.",
     features: [
@@ -38,7 +38,7 @@ const SECTIONS = [
       { icon: Palette, label: "Rounded Bézier corners on all connectors" },
     ],
     visual: "canvas",
-    accent: "from-indigo-500 to-blue-500",
+    accent: "from-purple-500 to-blue-500",
   },
   {
     badge: "Relationships",
@@ -87,14 +87,14 @@ const SECTIONS = [
 const ATTR_TYPES = [
   { name: "String", color: "emerald", desc: "Text values with optional size limits" },
   { name: "Integer", color: "blue", desc: "Whole numbers with min/max range" },
-  { name: "Float", color: "cyan", desc: "Decimal numbers with precision control" },
+  { name: "Float", color: "cyan", desc: "Decimal numbers with precision" },
   { name: "Boolean", color: "amber", desc: "True or false toggle values" },
-  { name: "Email", color: "sky", desc: "Validated email address format" },
-  { name: "URL", color: "violet", desc: "Validated URL format strings" },
-  { name: "IP", color: "rose", desc: "IPv4 or IPv6 address values" },
-  { name: "Enum", color: "orange", desc: "Predefined list of allowed values" },
-  { name: "Datetime", color: "pink", desc: "ISO 8601 date-time strings" },
-  { name: "Relationship", color: "indigo", desc: "Links between collections" },
+  { name: "JSON", color: "sky", desc: "Nested objects and arrays" },
+  { name: "UUID", color: "violet", desc: "Universally unique identifiers" },
+  { name: "Timestamp", color: "rose", desc: "Date-time with timezone" },
+  { name: "Enum", color: "orange", desc: "Predefined allowed values" },
+  { name: "Relation", color: "pink", desc: "Foreign keys and references" },
+  { name: "Array", color: "purple", desc: "Lists of values (NoSQL)" },
 ];
 
 const KEYBOARD_SHORTCUTS = [
@@ -107,30 +107,30 @@ const KEYBOARD_SHORTCUTS = [
 ];
 
 const COMPARISON = [
-  { feature: "Live Appwrite sync", xina: true, generic: false },
+  { feature: "10+ database engines", xina: true, generic: false },
+  { feature: "AI schema generation", xina: true, generic: false },
+  { feature: "Drag & drop table builder", xina: true, generic: false },
   { feature: "Auto relationship detection", xina: true, generic: false },
   { feature: "Crow's foot ERD notation", xina: true, generic: false },
-  { feature: "Obstacle-aware routing", xina: true, generic: false },
-  { feature: "Create collections in-tool", xina: true, generic: false },
-  { feature: "System attribute display", xina: true, generic: false },
-  { feature: "Code generation", xina: true, generic: false },
+  { feature: "One-click deploy to database", xina: true, generic: false },
+  { feature: "SQL + NoSQL + BaaS support", xina: true, generic: false },
   { feature: "Free & open source", xina: true, generic: false },
 ];
 
 const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
 
 const badgeColors: Record<string, string> = {
-  indigo: "border-indigo-500/20 bg-indigo-500/[0.06] text-indigo-400",
+  purple: "border-purple-500/20 bg-purple-500/[0.06] text-purple-400",
   violet: "border-violet-500/20 bg-violet-500/[0.06] text-violet-400",
   emerald: "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-400",
   amber: "border-amber-500/20 bg-amber-500/[0.06] text-amber-400",
 };
 
-const iconBgColors: Record<string, string> = {
-  indigo: "bg-indigo-600/10 text-indigo-400 ring-indigo-500/20",
-  violet: "bg-violet-600/10 text-violet-400 ring-violet-500/20",
-  emerald: "bg-emerald-600/10 text-emerald-400 ring-emerald-500/20",
-  amber: "bg-amber-600/10 text-amber-400 ring-amber-500/20",
+const iconColors: Record<string, string> = {
+  purple: "text-purple-400",
+  violet: "text-violet-400",
+  emerald: "text-emerald-400",
+  amber: "text-amber-400",
 };
 
 function FeatureVisual({ type }: { type: string }) {
@@ -140,14 +140,14 @@ function FeatureVisual({ type }: { type: string }) {
     return (
       <div className={base}>
         <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "radial-gradient(circle, #555 0.8px, transparent 0.8px)", backgroundSize: "20px 20px" }} />
-        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-indigo-600/[0.06] blur-[60px]" />
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-purple-600/[0.06] blur-[60px]" />
         <motion.div initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.2 }} className="absolute left-6 top-6 h-20 w-32 rounded-lg border border-white/[0.08] bg-[#111114] shadow-lg shadow-black/20">
-          <div className="flex items-center gap-1.5 border-b border-white/[0.06] bg-white/[0.02] px-3 py-1.5"><Database size={9} className="text-indigo-400" /><span className="text-[9px] font-semibold text-white">Users</span></div>
-          <div className="space-y-0.5 px-3 py-1 text-[8px] text-zinc-500"><div>name</div><div>email</div><div className="text-indigo-400">posts →</div></div>
+          <div className="flex items-center gap-1.5 border-b border-white/[0.06] bg-white/[0.02] px-3 py-1.5"><Database size={9} className="text-purple-400" /><span className="text-[9px] font-semibold text-white">Users</span></div>
+          <div className="space-y-0.5 px-3 py-1 text-[8px] text-zinc-500"><div>name</div><div>email</div><div className="text-purple-400">posts →</div></div>
         </motion.div>
         <motion.div initial={{ opacity: 0, x: 10 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.4 }} className="absolute bottom-8 right-6 h-20 w-32 rounded-lg border border-white/[0.08] bg-[#111114] shadow-lg shadow-black/20">
-          <div className="flex items-center gap-1.5 border-b border-white/[0.06] bg-white/[0.02] px-3 py-1.5"><Database size={9} className="text-indigo-400" /><span className="text-[9px] font-semibold text-white">Posts</span></div>
-          <div className="space-y-0.5 px-3 py-1 text-[8px] text-zinc-500"><div>title</div><div>content</div><div className="text-indigo-400">← author</div></div>
+          <div className="flex items-center gap-1.5 border-b border-white/[0.06] bg-white/[0.02] px-3 py-1.5"><Database size={9} className="text-purple-400" /><span className="text-[9px] font-semibold text-white">Posts</span></div>
+          <div className="space-y-0.5 px-3 py-1 text-[8px] text-zinc-500"><div>title</div><div>content</div><div className="text-purple-400">← author</div></div>
         </motion.div>
         <svg className="absolute inset-0" style={{ zIndex: 1 }}><motion.path d="M 164 50 L 210 50 L 210 190 L 256 190" fill="none" stroke="url(#fv-grad)" strokeWidth={1.2} initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 1, delay: 0.5 }} /><defs><linearGradient id="fv-grad"><stop offset="0%" stopColor="#6366f1" stopOpacity={0.7} /><stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.3} /></linearGradient></defs></svg>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0c0c0f] to-transparent" />
@@ -207,12 +207,12 @@ function FeatureVisual({ type }: { type: string }) {
     <div className={base + " p-6"}>
       <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-amber-600/[0.04] blur-[60px]" />
       <div className="rounded-xl border border-white/[0.06] bg-[#111114] p-4">
-        <div className="mb-3 flex items-center gap-2"><Database size={12} className="text-amber-400" /><span className="text-xs font-semibold text-white">Users</span><span className="ml-auto rounded-full bg-indigo-500/10 px-2 py-0.5 text-[8px] font-semibold text-indigo-400">Selected</span></div>
+        <div className="mb-3 flex items-center gap-2"><Database size={12} className="text-amber-400" /><span className="text-xs font-semibold text-white">Users</span><span className="ml-auto rounded-full bg-purple-500/10 px-2 py-0.5 text-[8px] font-semibold text-purple-400">Selected</span></div>
         <div className="space-y-1.5 text-[11px]">
           <div className="flex items-center justify-between rounded-md bg-white/[0.02] px-2 py-1 text-zinc-400"><span>name</span><span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] text-emerald-500">string</span></div>
           <div className="flex items-center justify-between rounded-md px-2 py-1 text-zinc-400"><span>email</span><span className="rounded bg-sky-500/10 px-1.5 py-0.5 font-mono text-[9px] text-sky-500">email</span></div>
           <div className="flex items-center justify-between rounded-md bg-white/[0.02] px-2 py-1 text-zinc-400"><span>isAdmin</span><span className="rounded bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] text-amber-500">boolean</span></div>
-          <div className="flex items-center justify-between rounded-md px-2 py-1 text-indigo-400"><span>posts</span><span className="rounded bg-indigo-500/10 px-1.5 py-0.5 font-mono text-[9px] text-indigo-400">relation</span></div>
+          <div className="flex items-center justify-between rounded-md px-2 py-1 text-purple-400"><span>posts</span><span className="rounded bg-purple-500/10 px-1.5 py-0.5 font-mono text-[9px] text-purple-400">relation</span></div>
         </div>
       </div>
     </div>
@@ -220,16 +220,16 @@ function FeatureVisual({ type }: { type: string }) {
 }
 
 const colorMap: Record<string, string> = {
-  emerald: "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20",
-  blue: "bg-blue-500/10 text-blue-400 ring-blue-500/20",
-  cyan: "bg-cyan-500/10 text-cyan-400 ring-cyan-500/20",
-  amber: "bg-amber-500/10 text-amber-400 ring-amber-500/20",
-  sky: "bg-sky-500/10 text-sky-400 ring-sky-500/20",
-  violet: "bg-violet-500/10 text-violet-400 ring-violet-500/20",
-  rose: "bg-rose-500/10 text-rose-400 ring-rose-500/20",
-  orange: "bg-orange-500/10 text-orange-400 ring-orange-500/20",
-  pink: "bg-pink-500/10 text-pink-400 ring-pink-500/20",
-  indigo: "bg-indigo-500/10 text-indigo-400 ring-indigo-500/20",
+  emerald: "text-emerald-400",
+  blue: "text-blue-400",
+  cyan: "text-cyan-400",
+  amber: "text-amber-400",
+  sky: "text-sky-400",
+  violet: "text-violet-400",
+  rose: "text-rose-400",
+  orange: "text-orange-400",
+  pink: "text-pink-400",
+  purple: "text-purple-400",
 };
 
 export default function FeaturesPage() {
@@ -238,22 +238,22 @@ export default function FeaturesPage() {
       {/* Animated background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        <div className="absolute -top-40 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-indigo-600/[0.07] blur-[150px]" />
+        <div className="absolute -top-40 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-purple-600/[0.07] blur-[150px]" />
         <div className="absolute right-0 top-40 h-[400px] w-[400px] rounded-full bg-violet-600/[0.05] blur-[120px]" />
       </div>
 
       {/* Header */}
       <section className="relative mx-auto max-w-6xl px-6 pb-16 pt-28 text-center md:pt-36">
         <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.08 } } }} className="flex flex-col items-center">
-          <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="mb-5 inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/[0.06] px-4 py-1.5 text-xs font-medium text-indigo-400 backdrop-blur-sm">
+          <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="mb-5 inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/[0.06] px-4 py-1.5 text-xs font-medium text-purple-400 backdrop-blur-sm">
             <Sparkles size={12} /> Features
           </motion.div>
           <motion.h1 variants={fadeUp} transition={{ duration: 0.5 }} className="max-w-3xl text-3xl font-extrabold tracking-tight text-white md:text-5xl">
             Built for{" "}
-            <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent">Appwrite</span>{" "}
-            developers
+            <span className="text-purple-400">every database</span>{" "}
+            developer
           </motion.h1>
-          <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-4 max-w-lg text-base text-zinc-400 md:text-lg">Every feature is designed around the Appwrite databases API. No generic diagramming — just the tools you need.</motion.p>
+          <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-4 max-w-lg text-base text-zinc-400 md:text-lg">From PostgreSQL to MongoDB to Appwrite — every feature is designed around the databases you actually use.</motion.p>
         </motion.div>
       </section>
 
@@ -268,7 +268,7 @@ export default function FeaturesPage() {
               <ul className="space-y-3">
                 {section.features.map((f) => (
                   <li key={f.label} className="flex items-start gap-3 text-[13px] text-zinc-400">
-                    <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ring-1 ${iconBgColors[section.badgeColor]}`}><f.icon size={13} /></span>
+                    <span className={`mt-0.5 shrink-0 ${iconColors[section.badgeColor]}`}><f.icon size={15} /></span>
                     {f.label}
                   </li>
                 ))}
@@ -287,14 +287,14 @@ export default function FeaturesPage() {
       {/* ─── Supported attribute types ─── */}
       <section className="relative mx-auto max-w-6xl px-6 pb-32">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
-          <span className="mb-3 inline-block rounded-full bg-indigo-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-indigo-400">Attribute Types</span>
-          <h2 className="text-2xl font-bold tracking-tight text-white md:text-4xl">Every Appwrite attribute type</h2>
-          <p className="mt-3 text-sm text-zinc-500 md:text-base">Full support for all attribute types — each rendered with distinctive color coding on the canvas.</p>
+          <span className="mb-3 inline-block rounded-full bg-purple-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-purple-400">Attribute Types</span>
+          <h2 className="text-2xl font-bold tracking-tight text-white md:text-4xl">Universal column & attribute types</h2>
+          <p className="mt-3 text-sm text-zinc-500 md:text-base">Full support for types across SQL, NoSQL, and BaaS engines — each rendered with distinctive color coding on the canvas.</p>
         </motion.div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {ATTR_TYPES.map((t, i) => (
             <motion.div key={t.name} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }} transition={{ duration: 0.35, delay: i * 0.04 }} className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition-all hover:border-white/[0.1]">
-              <span className={`mb-2 inline-block rounded-md px-2.5 py-0.5 font-mono text-[10px] font-semibold ring-1 ${colorMap[t.color]}`}>{t.name}</span>
+              <span className={`mb-2 inline-block font-mono text-[10px] font-semibold ${colorMap[t.color]}`}>{t.name}</span>
               <p className="text-[11px] leading-relaxed text-zinc-500">{t.desc}</p>
             </motion.div>
           ))}
@@ -311,7 +311,7 @@ export default function FeaturesPage() {
             <ul className="space-y-3">
               {["TypeScript interfaces & Zod schemas", "Python dataclasses & Pydantic models", "Dart, Kotlin, Swift, Go, Rust model classes", "PHP classes & Ruby structs"].map((t) => (
                 <li key={t} className="flex items-center gap-3 text-[13px] text-zinc-400">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10"><CheckCircle2 size={12} className="text-emerald-400" /></span> {t}
+                  <CheckCircle2 size={14} className="shrink-0 text-emerald-400" /> {t}
                 </li>
               ))}
             </ul>
@@ -321,7 +321,7 @@ export default function FeaturesPage() {
               <div className="pointer-events-none absolute -inset-2 rounded-3xl bg-gradient-to-b from-emerald-600/[0.05] to-transparent blur-xl" />
               <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0c0f] shadow-xl shadow-black/30">
                 <div className="flex items-center gap-2 border-b border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
-                  <span className="rounded bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-400">TypeScript</span>
+                  <span className="rounded bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-400">TypeScript</span>
                   <span className="rounded bg-white/[0.04] px-2 py-0.5 text-[10px] text-zinc-600">Python</span>
                   <span className="rounded bg-white/[0.04] px-2 py-0.5 text-[10px] text-zinc-600">Dart</span>
                 </div>
@@ -346,7 +346,7 @@ export default function FeaturesPage() {
       {/* ─── Canvas shortcuts ─── */}
       <section className="relative mx-auto max-w-4xl px-6 pb-32">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-10 text-center">
-          <span className="mb-3 inline-block rounded-full bg-indigo-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-indigo-400">Shortcuts</span>
+          <span className="mb-3 inline-block rounded-full bg-purple-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-purple-400">Shortcuts</span>
           <h2 className="text-2xl font-bold tracking-tight text-white md:text-4xl">Canvas shortcuts</h2>
           <p className="mt-3 text-sm text-zinc-500">Navigate the ERD canvas efficiently with keyboard and mouse.</p>
         </motion.div>
@@ -367,18 +367,18 @@ export default function FeaturesPage() {
       {/* ─── Xina vs generic tools ─── */}
       <section className="relative mx-auto max-w-4xl px-6 pb-32">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-10 text-center">
-          <span className="mb-3 inline-block rounded-full bg-indigo-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-indigo-400">Comparison</span>
+          <span className="mb-3 inline-block rounded-full bg-purple-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-purple-400">Comparison</span>
           <h2 className="text-2xl font-bold tracking-tight text-white md:text-4xl">Xina vs. generic diagramming tools</h2>
           <p className="mt-3 text-sm text-zinc-500">Purpose-built beats generic every time.</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
           <div className="grid grid-cols-[1fr_80px_80px] border-b border-white/[0.06] bg-white/[0.02] px-6 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-            <span>Feature</span><span className="text-center text-indigo-400">Xina</span><span className="text-center">Generic</span>
+            <span>Feature</span><span className="text-center text-purple-400">Xina</span><span className="text-center">Generic</span>
           </div>
           {COMPARISON.map((r, i) => (
             <div key={r.feature} className={`grid grid-cols-[1fr_80px_80px] px-6 py-3.5 transition-colors hover:bg-white/[0.02] ${i > 0 ? "border-t border-white/[0.04]" : ""}`}>
               <span className="text-[13px] text-zinc-400">{r.feature}</span>
-              <span className="flex justify-center">{r.xina ? <CheckCircle2 size={15} className="text-indigo-400" /> : <span className="text-zinc-700">—</span>}</span>
+              <span className="flex justify-center">{r.xina ? <CheckCircle2 size={15} className="text-purple-400" /> : <span className="text-zinc-700">—</span>}</span>
               <span className="flex justify-center">{r.generic ? <CheckCircle2 size={15} className="text-emerald-400" /> : <X size={14} className="text-zinc-700/50" />}</span>
             </div>
           ))}
@@ -393,9 +393,9 @@ export default function FeaturesPage() {
             <h2 className="mb-3 text-xl font-bold text-white md:text-2xl">Export & Share</h2>
             <p className="mb-6 text-[14px] leading-relaxed text-zinc-400">Export your ERD as a high-resolution PNG or SVG image for documentation, presentations, or team discussions. Share schemas without requiring others to connect.</p>
             <ul className="space-y-3">
-              {["High-resolution PNG & SVG export", "Copy generated code to clipboard", "Share schema snapshots with your team", "Works with Appwrite Cloud & self-hosted"].map((t) => (
+              {["High-resolution PNG & SVG export", "Copy generated code or SQL DDL to clipboard", "Share schema snapshots with your team", "Works with all 10+ supported database engines"].map((t) => (
                 <li key={t} className="flex items-center gap-3 text-[13px] text-zinc-400">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/10"><CheckCircle2 size={12} className="text-violet-400" /></span> {t}
+                  <CheckCircle2 size={14} className="shrink-0 text-violet-400" /> {t}
                 </li>
               ))}
             </ul>
@@ -407,7 +407,7 @@ export default function FeaturesPage() {
                 <div className="flex h-full flex-col items-center justify-center gap-5">
                   <div className="flex gap-4">
                     {[
-                      { icon: Code2, label: "TypeScript", color: "text-indigo-400" },
+                      { icon: Code2, label: "TypeScript", color: "text-purple-400" },
                       { icon: FileCode2, label: "Python", color: "text-emerald-400" },
                       { icon: Download, label: "SVG", color: "text-violet-400" },
                     ].map((item) => (
@@ -427,13 +427,13 @@ export default function FeaturesPage() {
 
       {/* CTA */}
       <section className="relative mx-auto max-w-6xl px-6 pb-28">
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }} className="relative overflow-hidden rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-600/[0.12] via-violet-600/[0.06] to-transparent p-10 text-center md:p-16">
-          <div className="pointer-events-none absolute -left-20 -top-20 h-60 w-60 rounded-full bg-indigo-600/10 blur-[80px]" />
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }} className="relative overflow-hidden rounded-3xl border border-purple-500/20 bg-gradient-to-br from-purple-600/[0.12] via-violet-600/[0.06] to-transparent p-10 text-center md:p-16">
+          <div className="pointer-events-none absolute -left-20 -top-20 h-60 w-60 rounded-full bg-purple-600/10 blur-[80px]" />
           <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-violet-600/10 blur-[60px]" />
           <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #fff 0.5px, transparent 0.5px)", backgroundSize: "20px 20px" }} />
           <div className="relative">
             <h2 className="text-2xl font-bold text-white md:text-4xl">See it in action</h2>
-            <p className="mt-3 text-sm text-zinc-400 md:text-base">Connect your Appwrite project and explore every feature.</p>
+            <p className="mt-3 text-sm text-zinc-400 md:text-base">Pick your database engine, design your schema, and explore every feature.</p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link href="/studio" className="group inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-[#09090b] shadow-xl transition-all hover:bg-zinc-100">
                 Open Studio <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
