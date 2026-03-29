@@ -1,0 +1,41 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Remove all border-radius — matching xina */
+* {
+  border-radius: 0 !important;
+}
+
+button,
+a,
+div,
+span,
+input,
+select,
+textarea,
+[class*="rounded-"],
+[class*="shadow-"],
+[class*="shadow"],
+.shadow,
+.rounded-lg,
+.rounded-xl,
+.rounded-2xl,
+.rounded-3xl,
+.rounded-full,
+.rounded-md,
+.rounded-sm {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-ibm-plex-sans);
+}
+
+body {
+  font-family: var(--font-ibm-plex-sans), "IBM Plex Sans", "Avenir Next", sans-serif;
+  background: #09090b;
+  color: #ededed;
+}
