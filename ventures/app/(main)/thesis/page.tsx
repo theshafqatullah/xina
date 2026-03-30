@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Cpu, Flame, Code2, HeartPulse, Landmark, Rocket, Sparkles, ArrowRight, CheckCircle2, Eye, Layers, Box, Shield, Brain } from "lucide-react";
@@ -7,12 +8,12 @@ import { Cpu, Flame, Code2, HeartPulse, Landmark, Rocket, Sparkles, ArrowRight, 
 const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
 
 const focusAreas = [
-  { icon: Cpu, title: "Artificial Intelligence", description: "From foundational models and inference infrastructure to vertical AI applications. We've backed OpenAI, Anthropic, Hugging Face, Replicate, and LangChain — investing at every layer of the AI stack.", examples: "OpenAI, Anthropic, Hugging Face, Replicate", accent: "from-purple-500 to-blue-500" },
-  { icon: Code2, title: "Developer Tools & Infrastructure", description: "Platforms that make engineers 10x more productive — from code to deployment. We believe developer experience is the ultimate moat. Our portfolio includes the tools millions of engineers use daily.", examples: "Vercel, Supabase, Linear, Prisma, Railway", accent: "from-amber-500 to-orange-500" },
-  { icon: Layers, title: "Cloud & Data Infrastructure", description: "The foundational infrastructure layer powering modern applications — databases, observability, edge compute, and real-time data pipelines serving billions of requests.", examples: "Neon, Turso, Datadog, Upstash, Tinybird", accent: "from-cyan-500 to-blue-500" },
-  { icon: Landmark, title: "Fintech", description: "Reimagining financial infrastructure from the ground up — payments, banking-as-a-service, financial data connectivity, and embedded finance powering the next generation of commerce.", examples: "Stripe, Plaid", accent: "from-blue-500 to-indigo-500" },
+  { icon: Cpu, title: "Artificial Intelligence", description: "From model inference to AI-native applications. We've backed Replicate, LangChain, Modal, Together AI, and Qdrant — investing at every layer of the AI stack.", examples: "Replicate, LangChain, Modal, Together AI", accent: "from-purple-500 to-blue-500" },
+  { icon: Code2, title: "Developer Tools & Infrastructure", description: "Platforms that make engineers 10x more productive — from code to deployment. We believe developer experience is the ultimate moat. Our portfolio includes the tools the best engineers reach for daily.", examples: "Linear, Prisma, Railway, Resend, Zed", accent: "from-amber-500 to-orange-500" },
+  { icon: Layers, title: "Cloud & Data Infrastructure", description: "The foundational infrastructure layer powering modern applications — databases, observability, edge compute, and real-time data pipelines serving billions of requests.", examples: "Neon, Turso, Upstash, Tinybird, MotherDuck", accent: "from-cyan-500 to-blue-500" },
+  { icon: Landmark, title: "Fintech", description: "Reimagining financial infrastructure from the ground up — startup banking, payments, and embedded finance powering the next generation of commerce.", examples: "Mercury", accent: "from-blue-500 to-indigo-500" },
   { icon: Flame, title: "Climate & Energy", description: "Breakthrough technologies in energy storage, carbon capture, grid optimization, and sustainable infrastructure. We invest where deep science meets massive market opportunity.", examples: "Multiple stealth investments", accent: "from-emerald-500 to-teal-500" },
-  { icon: Brain, title: "AI Safety & Alignment", description: "Ensuring AI systems are reliable, interpretable, and aligned with human values. We believe safety research is not just ethical but commercially essential as AI scales.", examples: "Anthropic", accent: "from-rose-500 to-pink-500" },
+  { icon: Brain, title: "AI Infrastructure", description: "Vector search, GPU compute, workflow orchestration — the essential picks and shovels of the AI revolution. We back the infrastructure layer that every AI company depends on.", examples: "Qdrant, Modal", accent: "from-rose-500 to-pink-500" },
 ];
 
 const stages = [
@@ -57,6 +58,23 @@ export default function ThesisPage() {
 
       {/* Philosophy */}
       <section className="relative mx-auto max-w-5xl px-6 pb-28">
+        {/* Philosophy image */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="relative mb-14 h-64 w-full overflow-hidden md:h-80"
+        >
+          <Image
+            src="https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=1400&q=80&auto=format&fit=crop"
+            alt="Abstract purple light"
+            fill
+            className="object-cover opacity-40"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 to-transparent" />
+        </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.5 }} className="grid items-start gap-10 md:grid-cols-2">
           <div>
             <span className="mb-3 inline-block bg-purple-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-purple-400">Philosophy</span>
@@ -83,7 +101,7 @@ export default function ThesisPage() {
       </section>
 
       {/* Investment Principles */}
-      <section className="relative border-t border-white/[0.06] py-28">
+      <section className="relative py-28">
         <div className="mx-auto max-w-6xl px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
             <span className="mb-3 inline-block bg-amber-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">Principles</span>
@@ -115,7 +133,7 @@ export default function ThesisPage() {
       </section>
 
       {/* Focus Areas */}
-      <section className="relative border-t border-white/[0.06] py-28">
+      <section className="relative py-28">
         <div className="mx-auto max-w-6xl px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14">
             <span className="mb-3 inline-block bg-violet-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-400">Focus Areas</span>
@@ -150,7 +168,7 @@ export default function ThesisPage() {
       </section>
 
       {/* Stage */}
-      <section className="relative border-t border-white/[0.06] py-28">
+      <section className="relative py-28">
         <div className="mx-auto max-w-4xl px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14">
             <span className="mb-3 inline-block bg-emerald-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">Stages</span>
@@ -182,7 +200,7 @@ export default function ThesisPage() {
       </section>
 
       {/* What We Look For */}
-      <section className="relative border-t border-white/[0.06] py-28">
+      <section className="relative py-28">
         <div className="mx-auto max-w-4xl px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
             <span className="mb-3 inline-block bg-purple-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-purple-400">Criteria</span>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -177,8 +178,8 @@ function Navbar() {
   return (
     <header className="relative sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#09090b]">
       <nav className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-5">
-        <Link href="/" className="text-[15px] font-bold tracking-tight text-white">
-          Xina Ventures
+        <Link href="/" className="flex items-center gap-2">
+          <Image src="/xina-logo.svg" alt="Xina Ventures" width={100} height={24} className="h-6 w-auto" />
         </Link>
 
         <div className="hidden items-center gap-0.5 md:flex">
@@ -274,7 +275,9 @@ function Footer() {
       <div className="relative mx-auto max-w-6xl px-6 py-14">
         <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-4">
           <div className="sm:col-span-2 md:col-span-1">
-            <p className="text-[15px] font-bold tracking-tight text-white">Xina Ventures</p>
+            <Link href="/">
+              <Image src="/xina-logo.svg" alt="Xina Ventures" width={100} height={24} className="h-6 w-auto" />
+            </Link>
             <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-zinc-500">
               Backing bold founders building the future. Early &amp; growth stage venture capital.
             </p>

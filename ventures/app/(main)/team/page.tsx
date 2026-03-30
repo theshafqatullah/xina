@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Users, ArrowRight, Briefcase, GraduationCap, Globe } from "lucide-react";
 import Link from "next/link";
@@ -126,8 +127,33 @@ export default function TeamPage() {
         </motion.div>
       </section>
 
+      {/* Team Hero Image */}
+      <section className="relative">
+        <div className="relative mx-auto max-w-6xl overflow-hidden px-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="relative h-64 w-full overflow-hidden md:h-80"
+          >
+            <Image
+              src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1400&q=80&auto=format&fit=crop"
+              alt="Team collaboration"
+              fill
+              className="object-cover opacity-30"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/40 to-[#09090b]/80" />
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 to-violet-600/5" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="text-center text-sm font-medium text-zinc-400 md:text-base">Operators building for operators</p>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Key stats */}
-      <section className="relative border-y border-white/[0.06]">
+      <section className="relative">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-0 sm:grid-cols-4">
           {[
             { icon: Briefcase, value: "80+", label: "Years Combined Experience" },
@@ -166,7 +192,7 @@ export default function TeamPage() {
       </section>
 
       {/* Team */}
-      <section className="relative border-t border-white/[0.06] py-28">
+      <section className="relative py-28">
         <div className="mx-auto max-w-6xl px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-10">
             <span className="mb-3 inline-block bg-violet-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-400">Team</span>
@@ -182,7 +208,7 @@ export default function TeamPage() {
       </section>
 
       {/* Advisory Board */}
-      <section className="relative border-t border-white/[0.06] py-28">
+      <section className="relative py-28">
         <div className="mx-auto max-w-6xl px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-10 text-center">
             <span className="mb-3 inline-block bg-amber-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">Advisors</span>
@@ -211,9 +237,15 @@ export default function TeamPage() {
       </section>
 
       {/* Join Us CTA */}
-      <section className="relative border-t border-white/[0.06]">
+      <section className="relative">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute bottom-0 left-1/2 h-[300px] w-[600px] -translate-x-1/2 bg-purple-600/[0.06] blur-[120px]" />
+          <Image
+            src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1920&q=80&auto=format&fit=crop"
+            alt=""
+            fill
+            className="object-cover opacity-[0.06]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/80 to-[#09090b]" />
         </div>
         <div className="relative mx-auto max-w-4xl px-6 py-28 text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>

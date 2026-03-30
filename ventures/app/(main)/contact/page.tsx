@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Mail, MapPin, Clock, ArrowRight, MessageCircle, Shield, Briefcase, Users, Newspaper } from "lucide-react";
 import Link from "next/link";
@@ -14,9 +15,9 @@ const contacts = [
 ];
 
 const offices = [
-  { city: "San Francisco", address: "One Market Street, Suite 3600\nSan Francisco, CA 94105", primary: true },
-  { city: "New York", address: "55 Hudson Yards, 30th Floor\nNew York, NY 10001", primary: false },
-  { city: "London", address: "22 Bishopsgate, Level 33\nLondon EC2N 4BQ", primary: false },
+  { city: "San Francisco", address: "One Market Street, Suite 3600\nSan Francisco, CA 94105", primary: true, image: "https://images.unsplash.com/photo-1521747116042-5a810fda9664?w=600&q=80&auto=format&fit=crop" },
+  { city: "New York", address: "55 Hudson Yards, 30th Floor\nNew York, NY 10001", primary: false, image: "https://images.unsplash.com/photo-1534430480872-3498386e7856?w=600&q=80&auto=format&fit=crop" },
+  { city: "London", address: "22 Bishopsgate, Level 33\nLondon EC2N 4BQ", primary: false, image: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=600&q=80&auto=format&fit=crop" },
 ];
 
 const faqs = [
@@ -79,7 +80,7 @@ export default function ContactPage() {
       </section>
 
       {/* Offices */}
-      <section className="relative border-t border-white/[0.06] py-28">
+      <section className="relative py-28">
         <div className="mx-auto max-w-5xl px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-10">
             <span className="mb-3 inline-block bg-violet-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-400">Global Presence</span>
@@ -94,10 +95,16 @@ export default function ContactPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.06 }}
-                className="border border-white/[0.06] bg-white/[0.02] p-6"
+                className="border border-white/[0.06] bg-white/[0.02] p-6 overflow-hidden"
               >
-                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center bg-gradient-to-br from-purple-500 to-violet-600 text-white">
-                  <MapPin size={16} />
+                <div className="relative -mx-6 -mt-6 mb-5 h-36 overflow-hidden">
+                  <Image
+                    src={office.image}
+                    alt={office.city}
+                    fill
+                    className="object-cover opacity-60 transition-opacity duration-300 group-hover:opacity-80"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] to-transparent" />
                 </div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-white">{office.city}</h3>
@@ -132,7 +139,7 @@ export default function ContactPage() {
       </section>
 
       {/* FAQ */}
-      <section className="relative border-t border-white/[0.06] py-28">
+      <section className="relative py-28">
         <div className="mx-auto max-w-3xl px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
             <span className="mb-3 inline-block bg-amber-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">FAQ</span>
@@ -157,9 +164,15 @@ export default function ContactPage() {
       </section>
 
       {/* CTA */}
-      <section className="relative border-t border-white/[0.06]">
+      <section className="relative">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute bottom-0 left-1/2 h-[300px] w-[600px] -translate-x-1/2 bg-purple-600/[0.06] blur-[120px]" />
+          <Image
+            src="https://images.unsplash.com/photo-1534972195531-d756b9bfa9f2?w=1920&q=80&auto=format&fit=crop"
+            alt=""
+            fill
+            className="object-cover opacity-[0.06]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/80 to-[#09090b]" />
         </div>
         <div className="relative mx-auto max-w-4xl px-6 py-28 text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>

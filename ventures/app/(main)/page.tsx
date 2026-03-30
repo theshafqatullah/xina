@@ -3,7 +3,30 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowRight, TrendingUp, Building2, DollarSign, Calendar, Globe, Users, Target, Zap, Shield, Lightbulb } from "lucide-react";
+import {
+  ArrowRight,
+  TrendingUp,
+  Building2,
+  DollarSign,
+  Calendar,
+  Globe,
+  Users,
+  Target,
+  Zap,
+  Shield,
+  Lightbulb,
+  Cpu,
+  Code2,
+  Layers,
+  Landmark,
+  Flame,
+  Brain,
+  Search as SearchIcon,
+  Handshake,
+  Rocket,
+  LineChart,
+  MapPin,
+} from "lucide-react";
 
 const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
 
@@ -17,21 +40,20 @@ const stats = [
 ];
 
 const logoMap: Record<string, string> = {
-  "Vercel": "vercel", "Supabase": "supabase", "Linear": "linear", "Prisma": "prisma",
-  "Railway": "railway", "Resend": "resend", "Neon": "neon", "Clerk": "clerk", "OpenAI": "openai",
-  "Anthropic": "anthropic", "Figma": "figma", "Stripe": "stripe", "Datadog": "datadog",
-  "Cloudflare": "cloudflare", "Notion": "notion", "Loom": "loom", "Replicate": "replicate",
-  "Axiom": "axiom", "Trigger.dev": "triggerdotdev", "Inngest": "inngest",
-  "Tinybird": "tinybird", "Dub": "dub", "Plaid": "plaid", "Segment": "segment",
+  Linear: "linear", Prisma: "prisma", Railway: "railway", Resend: "resend",
+  Neon: "neon", Clerk: "clerk", Replicate: "replicate", Axiom: "axiom",
+  "Trigger.dev": "triggerdotdev", Inngest: "inngest", Tinybird: "tinybird",
+  Dub: "dub", Warp: "warp", Upstash: "upstash", LangChain: "langchain",
+  Convex: "convex", Turso: "turso", "Cal.com": "caldotcom",
 };
 
 const featuredCompanies = [
-  { name: "Vercel", sector: "Developer Tools", description: "The frontend cloud platform powering the best web experiences. Creators of Next.js.", stage: "Series D" },
-  { name: "Stripe", sector: "Fintech", description: "Financial infrastructure for the internet. Payments, billing, and financial operations at scale.", stage: "Growth" },
-  { name: "Figma", sector: "Design Tools", description: "Collaborative interface design platform used by millions of product teams worldwide.", stage: "Growth" },
-  { name: "Datadog", sector: "Infrastructure", description: "Cloud-scale monitoring and observability platform for modern engineering organizations.", stage: "Growth" },
-  { name: "OpenAI", sector: "Artificial Intelligence", description: "Pioneering safe and beneficial artificial general intelligence for all of humanity.", stage: "Growth" },
-  { name: "Anthropic", sector: "AI Safety", description: "Building reliable, interpretable, and steerable AI systems. Creators of Claude.", stage: "Series C" },
+  { name: "Linear", sector: "Developer Tools", description: "The issue tracking tool built for speed. Streamlines project management for high-performance engineering teams.", stage: "Series B" },
+  { name: "Neon", sector: "Database Infrastructure", description: "Serverless Postgres with branching, autoscaling, and bottomless storage for modern apps.", stage: "Series B" },
+  { name: "Railway", sector: "Developer Tools", description: "Infrastructure platform that provisions instant, production-ready environments. Deploy in seconds.", stage: "Series A" },
+  { name: "Replicate", sector: "AI Infrastructure", description: "Run and fine-tune open-source ML models with a cloud API. No infrastructure management needed.", stage: "Series B" },
+  { name: "Warp", sector: "Developer Tools", description: "The modern terminal reimagined with AI, collaborative features, and GPU-accelerated rendering.", stage: "Series B" },
+  { name: "LangChain", sector: "AI Infrastructure", description: "Framework for building LLM-powered apps. Chains, agents, and retrieval-augmented generation.", stage: "Series A" },
 ];
 
 const pillars = [
@@ -41,9 +63,36 @@ const pillars = [
   { icon: Lightbulb, title: "Full-Stack Support", desc: "Dedicated platform team for recruiting, GTM, finance, and international expansion across all portfolio companies." },
 ];
 
+const focusAreas = [
+  { icon: Cpu, title: "Artificial Intelligence", description: "From model inference to AI-native apps. We've backed Replicate, LangChain, Modal, Together AI, and Qdrant.", accent: "from-purple-500 to-blue-500" },
+  { icon: Code2, title: "Developer Tools", description: "Platforms that make engineers 10x more productive — Linear, Prisma, Railway, Resend, Zed, Mintlify.", accent: "from-amber-500 to-orange-500" },
+  { icon: Layers, title: "Cloud & Data", description: "Databases, observability, edge compute, and real-time pipelines — Neon, Turso, Tinybird, MotherDuck, Axiom.", accent: "from-cyan-500 to-blue-500" },
+  { icon: Landmark, title: "Fintech", description: "Startup banking, payments infrastructure, and financial workflows — Mercury.", accent: "from-blue-500 to-indigo-500" },
+  { icon: Flame, title: "Climate & Energy", description: "Energy storage, carbon capture, grid optimization, and sustainable infrastructure.", accent: "from-emerald-500 to-teal-500" },
+  { icon: Brain, title: "AI Infrastructure", description: "Vector search, GPU compute, workflow orchestration — the picks and shovels of the AI revolution.", accent: "from-rose-500 to-pink-500" },
+];
+
+const processSteps = [
+  { icon: SearchIcon, title: "Source", description: "We develop independent thesis on where markets are heading, then proactively seek founders building in those spaces — often before anyone else." },
+  { icon: Handshake, title: "Partner", description: "We lead or co-lead rounds and take board seats. Our role goes beyond capital — recruiting, GTM strategy, and connecting founders to our 1,200+ operator network." },
+  { icon: Rocket, title: "Build", description: "Hands-on support from our platform team in hiring, pricing, product strategy, and international expansion at every growth stage." },
+  { icon: LineChart, title: "Scale", description: "Help with M&A strategy, follow-on fundraising, executive recruiting, and IPO readiness. We stay invested for 8+ years on average." },
+];
+
+const testimonials = [
+  { quote: "Xina didn't just write a check — they helped us recruit our first 10 engineers, refine our pricing model, and connected us with enterprise design partners who became our first $1M contracts. They're the most operationally helpful investors we've worked with.", name: "Karri Saarinen", title: "CEO & Co-Founder, Linear" },
+  { quote: "What sets Xina apart is their depth of technical understanding. They don't just evaluate markets — they understand the code, the architecture, and the engineering challenges. That made them invaluable partners as we scaled from 10 to 200 engineers.", name: "Nikita Shamgunov", title: "CEO & Co-Founder, Neon" },
+];
+
+const offices = [
+  { city: "San Francisco", label: "HQ" },
+  { city: "New York", label: "East Coast" },
+  { city: "London", label: "Europe" },
+];
+
 const logoCompanies = [
-  "Vercel", "Stripe", "Figma", "Linear", "Supabase", "OpenAI",
-  "Railway", "Resend", "Prisma", "Anthropic", "Cloudflare", "Notion",
+  "Linear", "Neon", "Railway", "Resend", "Prisma", "Clerk",
+  "Warp", "Replicate", "Tinybird", "Axiom", "LangChain", "Dub",
 ];
 
 export default function Home() {
@@ -74,8 +123,7 @@ export default function Home() {
               href="/thesis"
               className="inline-flex items-center justify-center gap-2 bg-purple-600 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-purple-700"
             >
-              Our Thesis
-              <ArrowRight size={15} />
+              Our Thesis <ArrowRight size={15} />
             </Link>
             <Link
               href="/portfolio"
@@ -88,7 +136,7 @@ export default function Home() {
       </section>
 
       {/* Portfolio Marquee */}
-      <section className="relative border-y border-white/[0.06] py-10 overflow-hidden">
+      <section className="relative py-10 overflow-hidden">
         <div className="mx-auto max-w-6xl px-6">
           <p className="mb-8 text-center text-[11px] font-semibold uppercase tracking-widest text-zinc-600">Trusted by category-defining companies</p>
           <motion.div
@@ -125,7 +173,7 @@ export default function Home() {
       </section>
 
       {/* Stats */}
-      <section className="relative border-b border-white/[0.06]">
+      <section className="relative">
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-0 sm:grid-cols-3 lg:grid-cols-6">
           {stats.map((stat, i) => (
             <motion.div
@@ -134,7 +182,7 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.06 }}
-              className="flex flex-col items-center gap-2 border-white/[0.06] px-4 py-10 [&:not(:last-child)]:border-r"
+              className="flex flex-col items-center gap-2 border-white/[0.04] px-4 py-10 [&:not(:last-child)]:border-r"
             >
               <stat.icon size={16} className="text-purple-400" />
               <p className="text-xl font-bold text-white">{stat.value}</p>
@@ -148,9 +196,7 @@ export default function Home() {
       <section className="relative mx-auto max-w-6xl px-6 py-28">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
           <span className="mb-3 inline-block bg-violet-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-400">Why Xina</span>
-          <h2 className="text-xl font-bold text-white md:text-3xl">
-            More than capital
-          </h2>
+          <h2 className="text-xl font-bold text-white md:text-3xl">More than capital</h2>
           <p className="mx-auto mt-3 max-w-lg text-[14px] text-zinc-500">
             We bring decades of operating experience, a global network of 1,200+ executives, and a dedicated platform team to every partnership.
           </p>
@@ -178,15 +224,92 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Focus Areas */}
+      <section className="relative py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
+            <span className="mb-3 inline-block bg-purple-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-purple-400">Focus Areas</span>
+            <h2 className="text-xl font-bold text-white md:text-3xl">Where we invest</h2>
+            <p className="mx-auto mt-3 max-w-lg text-[14px] text-zinc-500">
+              Six sectors where we have deep conviction, operator experience, and a track record of category-defining investments.
+            </p>
+          </motion.div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {focusAreas.map((area, i) => {
+              const Icon = area.icon;
+              return (
+                <motion.div
+                  key={area.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: i * 0.05 }}
+                  className="group border border-white/[0.06] bg-white/[0.02] p-6 transition-all hover:border-white/[0.1] hover:bg-white/[0.04]"
+                >
+                  <div className={`mb-4 inline-flex h-9 w-9 items-center justify-center bg-gradient-to-br ${area.accent} text-white`}>
+                    <Icon size={18} />
+                  </div>
+                  <h3 className="font-semibold text-white">{area.title}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">{area.description}</p>
+                </motion.div>
+              );
+            })}
+          </div>
+          <div className="mt-10 text-center">
+            <Link href="/thesis" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-purple-400 transition-colors hover:text-purple-300">
+              Read our full thesis <ArrowRight size={13} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* How We Work */}
+      <section className="relative py-28">
+        <div className="mx-auto max-w-5xl px-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
+            <span className="mb-3 inline-block bg-emerald-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">Process</span>
+            <h2 className="text-xl font-bold text-white md:text-3xl">How we work with founders</h2>
+            <p className="mx-auto mt-3 max-w-lg text-[14px] text-zinc-500">
+              From first meeting to IPO — a partnership built on deep involvement at every stage.
+            </p>
+          </motion.div>
+          <div className="grid gap-0 sm:grid-cols-2 lg:grid-cols-4">
+            {processSteps.map((step, i) => {
+              const Icon = step.icon;
+              return (
+                <motion.div
+                  key={step.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: i * 0.08 }}
+                  className="relative p-6"
+                >
+                  <div className="mb-2 flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-bold text-white">
+                      {i + 1}
+                    </span>
+                    <Icon size={16} className="text-zinc-500" />
+                  </div>
+                  <h3 className="font-semibold text-white">{step.title}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">{step.description}</p>
+                  {i < processSteps.length - 1 && (
+                    <div className="pointer-events-none absolute right-0 top-1/2 hidden h-12 w-px -translate-y-1/2 bg-gradient-to-b from-transparent via-white/[0.06] to-transparent lg:block" />
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* Featured Portfolio */}
-      <section className="relative border-t border-white/[0.06] py-28">
+      <section className="relative py-28">
         <div className="mx-auto max-w-6xl px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 flex items-end justify-between">
             <div>
               <span className="mb-3 inline-block bg-purple-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-purple-400">Portfolio</span>
-              <h2 className="text-xl font-bold text-white md:text-2xl">
-                Featured Companies
-              </h2>
+              <h2 className="text-xl font-bold text-white md:text-2xl">Featured Companies</h2>
               <p className="mt-2 text-[14px] text-zinc-500">
                 A selection of the 120+ companies we&apos;re proud to partner with.
               </p>
@@ -238,29 +361,134 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Testimonial */}
-      <section className="relative border-t border-white/[0.06]">
+      {/* Testimonials */}
+      <section className="relative">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-1/4 top-0 h-[300px] w-[400px] bg-purple-600/[0.04] blur-[120px]" />
+          <Image
+            src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80&auto=format&fit=crop"
+            alt=""
+            fill
+            className="object-cover opacity-[0.07]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#09090b] via-transparent to-[#09090b]" />
         </div>
-        <div className="relative mx-auto max-w-3xl px-6 py-28 text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
-            <span className="mb-6 inline-block bg-amber-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">From our founders</span>
-            <blockquote className="text-lg font-medium leading-relaxed text-zinc-300 md:text-xl">
-              &ldquo;Xina didn&apos;t just write a check — they helped us recruit our first 10 engineers, refine our pricing model, and connected us with enterprise design partners who became our first $1M contracts. They&apos;re the most operationally helpful investors we&apos;ve worked with.&rdquo;
-            </blockquote>
-            <div className="mt-6">
-              <p className="text-[14px] font-semibold text-white">Guillermo Rauch</p>
-              <p className="text-[12px] text-zinc-500">CEO &amp; Founder, Vercel</p>
-            </div>
+        <div className="relative mx-auto max-w-5xl px-6 py-28">
+          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="mb-12 text-center">
+            <span className="mb-3 inline-block bg-amber-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">From our founders</span>
+          </motion.div>
+          <div className="grid gap-8 md:grid-cols-2">
+            {testimonials.map((t, i) => (
+              <motion.div
+                key={t.name}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                className="border border-white/[0.06] bg-white/[0.02] p-8"
+              >
+                <blockquote className="text-[14px] font-medium leading-relaxed text-zinc-300">
+                  &ldquo;{t.quote}&rdquo;
+                </blockquote>
+                <div className="mt-5">
+                  <p className="text-[14px] font-semibold text-white">{t.name}</p>
+                  <p className="text-[12px] text-zinc-500">{t.title}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Global Presence */}
+      <section className="relative py-28">
+        <div className="mx-auto max-w-5xl px-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
+            <span className="mb-3 inline-block bg-cyan-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-400">Global</span>
+            <h2 className="text-xl font-bold text-white md:text-3xl">Investing across borders</h2>
+            <p className="mx-auto mt-3 max-w-lg text-[14px] text-zinc-500">
+              Three offices, 18 countries, and a network that spans every major tech ecosystem.
+            </p>
+          </motion.div>
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            {offices.map((office, i) => (
+              <motion.div
+                key={office.city}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
+                className="flex items-center gap-3 border border-white/[0.06] bg-white/[0.02] px-6 py-4"
+              >
+                <MapPin size={16} className="text-cyan-400" />
+                <div>
+                  <p className="text-sm font-semibold text-white">{office.city}</p>
+                  <p className="text-[11px] text-zinc-500">{office.label}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="relative mt-12 h-48 w-full overflow-hidden md:h-64"
+          >
+            <Image
+              src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1400&q=80&auto=format&fit=crop"
+              alt="Global network"
+              fill
+              className="object-cover opacity-20"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-transparent to-[#09090b]" />
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-600/5 to-purple-600/5" />
           </motion.div>
         </div>
       </section>
 
+      {/* Fund Performance */}
+      <section className="relative py-28">
+        <div className="mx-auto max-w-4xl px-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
+            <span className="mb-3 inline-block bg-amber-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">Track Record</span>
+            <h2 className="text-xl font-bold text-white md:text-3xl">Consistent top-quartile returns</h2>
+            <p className="mx-auto mt-3 max-w-lg text-[14px] text-zinc-500">
+              Across 4 funds and 12 years, our disciplined approach has delivered outsized outcomes for founders and LPs alike.
+            </p>
+          </motion.div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[
+              { value: "$2.4B", label: "AUM" },
+              { value: "3.8x", label: "Avg Fund MOIC" },
+              { value: "45%", label: "Net IRR" },
+              { value: "$20B+", label: "Combined Exits" },
+            ].map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.06 }}
+                className="flex flex-col items-center gap-2 border border-white/[0.06] bg-white/[0.02] px-4 py-8"
+              >
+                <p className="text-2xl font-bold text-white">{s.value}</p>
+                <p className="text-center text-[10px] uppercase tracking-wider text-zinc-500">{s.label}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
-      <section className="relative border-t border-white/[0.06]">
+      <section className="relative">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute bottom-0 left-1/2 h-[300px] w-[600px] -translate-x-1/2 bg-purple-600/[0.06] blur-[120px]" />
+          <Image
+            src="https://images.unsplash.com/photo-1534972195531-d756b9bfa9f2?w=1920&q=80&auto=format&fit=crop"
+            alt=""
+            fill
+            className="object-cover opacity-[0.06]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/80 to-[#09090b]" />
         </div>
         <div className="relative mx-auto max-w-4xl px-6 py-28 text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
