@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Remove all border-radius — matching xina */
+/* Remove all border-radius — matching zinaplus */
 * {
   border-radius: 0 !important;
 }

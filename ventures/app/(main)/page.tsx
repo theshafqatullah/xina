@@ -80,8 +80,8 @@ const processSteps = [
 ];
 
 const testimonials = [
-  { quote: "Xina didn't just write a check — they helped us recruit our first 10 engineers, refine our pricing model, and connected us with enterprise design partners who became our first $1M contracts. They're the most operationally helpful investors we've worked with.", name: "Karri Saarinen", title: "CEO & Co-Founder, Linear" },
-  { quote: "What sets Xina apart is their depth of technical understanding. They don't just evaluate markets — they understand the code, the architecture, and the engineering challenges. That made them invaluable partners as we scaled from 10 to 200 engineers.", name: "Nikita Shamgunov", title: "CEO & Co-Founder, Neon" },
+  { quote: "Zinaplus didn't just write a check — they helped us recruit our first 10 engineers, refine our pricing model, and connected us with enterprise design partners who became our first $1M contracts. They're the most operationally helpful investors we've worked with.", name: "Karri Saarinen", title: "CEO & Co-Founder, Linear" },
+  { quote: "What sets Zinaplus apart is their depth of technical understanding. They don't just evaluate markets — they understand the code, the architecture, and the engineering challenges. That made them invaluable partners as we scaled from 10 to 200 engineers.", name: "Nikita Shamgunov", title: "CEO & Co-Founder, Neon" },
 ];
 
 const offices = [
@@ -116,7 +116,7 @@ export default function Home() {
             <span className="text-purple-400">tomorrow&apos;s infrastructure</span>
           </motion.h1>
           <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-6 max-w-2xl text-base leading-relaxed text-zinc-400 md:text-lg">
-            Xina Ventures is a multi-stage venture capital firm investing in developer tools, AI, cloud infrastructure, and category-defining software. We partner with technical founders from the earliest stages through IPO — deploying $2.4B across 120+ companies in 18 countries.
+            Zinaplus Ventures is a multi-stage venture capital firm investing in developer tools, AI, cloud infrastructure, and category-defining software. We partner with technical founders from the earliest stages through IPO — deploying $2.4B across 120+ companies in 18 countries.
           </motion.p>
           <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="mt-10 flex flex-col gap-3 sm:flex-row">
             <Link
@@ -195,7 +195,7 @@ export default function Home() {
       {/* Why Us */}
       <section className="relative mx-auto max-w-6xl px-6 py-28">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-14 text-center">
-          <span className="mb-3 inline-block bg-violet-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-400">Why Xina</span>
+          <span className="mb-3 inline-block bg-violet-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-400">Why Zinaplus</span>
           <h2 className="text-xl font-bold text-white md:text-3xl">More than capital</h2>
           <p className="mx-auto mt-3 max-w-lg text-[14px] text-zinc-500">
             We bring decades of operating experience, a global network of 1,200+ executives, and a dedicated platform team to every partnership.

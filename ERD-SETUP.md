@@ -1,4 +1,4 @@
-# Xina ERD Diagram Editor
+# Zinaplus ERD Diagram Editor
 
 A local-first, real-time ERD (Entity-Relationship Diagram) editor built with [tldraw](https://tldraw.dev/) and Next.js for designing PostgreSQL database schemas.
 
@@ -83,7 +83,7 @@ const sqlStatements = erdToPostgresSchema(erdDiagram)
 
 The editor uses browser's localStorage to persist diagrams:
 
-- **Storage Key**: `xina-erd-diagram`
+- **Storage Key**: `zinaplus-erd-diagram`
 - **Stored Data**: 
   - Version information for schema compatibility
   - Last modified timestamp

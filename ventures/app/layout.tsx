@@ -9,9 +9,9 @@ const ibmPlexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Xina Ventures — Backing Bold Founders",
+  title: "Zinaplus Ventures — Backing Bold Founders",
   description:
-    "Xina Ventures is an early and growth stage venture capital firm investing in AI, climate, developer tools, health, fintech, and frontier tech.",
+    "Zinaplus Ventures is an early and growth stage venture capital firm investing in AI, climate, developer tools, health, fintech, and frontier tech.",
 };
 
 export default function RootLayout({

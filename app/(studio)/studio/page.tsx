@@ -1060,9 +1060,9 @@ const envCfg: AppwriteConfig = {
   apiKey: process.env.NEXT_PUBLIC_APPWRITE_API_KEY ?? "",
 };
 
-const CONNECTIONS_KEY = "xinaConnections";
-const ACTIVE_CONNECTION_KEY = "xinaActiveConnectionId";
-const NODE_LAYOUTS_KEY = "xinaNodeLayouts";
+const CONNECTIONS_KEY = "zinaplusConnections";
+const ACTIVE_CONNECTION_KEY = "zinaplusActiveConnectionId";
+const NODE_LAYOUTS_KEY = "zinaplusNodeLayouts";
 const NODE_GAP = 24;
 
 type NodeLayoutMap = Record<string, Record<string, Record<string, { x: number; y: number }>>>;
@@ -1245,7 +1245,7 @@ export default function StudioPage() {
   /* ─── Persist config ─── */
   const saveCfg = (c: AppwriteConfig) => {
     setCfg(c);
-    try { localStorage.setItem("xinaAppwriteConfig", JSON.stringify(c)); } catch {}
+    try { localStorage.setItem("zinaplusAppwriteConfig", JSON.stringify(c)); } catch {}
   };
 
   const persistConnections = useCallback((next: SavedConnection[], nextActiveId: string | null) => {
@@ -1359,7 +1359,7 @@ export default function StudioPage() {
         return;
       }
 
-      const rawSingle = localStorage.getItem("xinaAppwriteConfig");
+      const rawSingle = localStorage.getItem("zinaplusAppwriteConfig");
       const savedSingle = rawSingle ? JSON.parse(rawSingle) : null;
       const merged = { ...envCfg, ...(savedSingle ?? {}) };
       setCfg(merged);
@@ -1380,7 +1380,7 @@ export default function StudioPage() {
   }, [persistConnections]);
 
   useEffect(() => {
-    const savedTheme = typeof window !== "undefined" ? localStorage.getItem("xinaTheme") : null;
+    const savedTheme = typeof window !== "undefined" ? localStorage.getItem("zinaplusTheme") : null;
     if (savedTheme === "light" || savedTheme === "dark") {
       setTheme(savedTheme);
       return;
@@ -1392,7 +1392,7 @@ export default function StudioPage() {
 
   useEffect(() => {
     try {
-      localStorage.setItem("xinaTheme", theme);
+      localStorage.setItem("zinaplusTheme", theme);
     } catch {}
   }, [theme]);
 
@@ -1999,12 +1999,12 @@ export default function StudioPage() {
 
   const [backupPolicies, setBackupPolicies] = useState<Record<string, { schedule: string; retention: number; lastBackup?: string }>>(() => {
     if (typeof window === "undefined") return {};
-    try { return JSON.parse(localStorage.getItem("xina_backup_policies") || "{}"); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem("zinaplus_backup_policies") || "{}"); } catch { return {}; }
   });
   const saveBackupPolicy = (dbId: string, schedule: string, retention: number) => {
     setBackupPolicies(prev => {
       const next = { ...prev, [dbId]: { ...prev[dbId], schedule, retention } };
-      localStorage.setItem("xina_backup_policies", JSON.stringify(next));
+      localStorage.setItem("zinaplus_backup_policies", JSON.stringify(next));
       return next;
     });
     toast.success("Backup policy saved");
@@ -2014,7 +2014,7 @@ export default function StudioPage() {
     await doExportDbSchema();
     setBackupPolicies(prev => {
       const next = { ...prev, [selDb.$id]: { ...prev[selDb.$id], schedule: prev[selDb.$id]?.schedule || "manual", retention: prev[selDb.$id]?.retention || 5, lastBackup: new Date().toISOString() } };
-      localStorage.setItem("xina_backup_policies", JSON.stringify(next));
+      localStorage.setItem("zinaplus_backup_policies", JSON.stringify(next));
       return next;
     });
   };
@@ -2278,7 +2278,7 @@ export default function StudioPage() {
   const onCanvasDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDropTarget(null);
-    const raw = e.dataTransfer.getData("application/x-xina");
+    const raw = e.dataTransfer.getData("application/x-zinaplus");
     if (!raw) return;
     const payload = JSON.parse(raw);
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -2313,7 +2313,7 @@ export default function StudioPage() {
   };
 
   const startPaletteDrag = (e: React.DragEvent, payload: object) => {
-    e.dataTransfer.setData("application/x-xina", JSON.stringify(payload));
+    e.dataTransfer.setData("application/x-zinaplus", JSON.stringify(payload));
   };
 
   const onNodeDragOver = (e: React.DragEvent, nodeId: string) => {
@@ -2322,7 +2322,7 @@ export default function StudioPage() {
   const onNodeDragLeave = (e: React.DragEvent) => { e.stopPropagation(); setDropTarget(null); };
   const onNodeDrop = async (e: React.DragEvent, nodeId: string) => {
     e.preventDefault(); e.stopPropagation(); setDropTarget(null);
-    const raw = e.dataTransfer.getData("application/x-xina");
+    const raw = e.dataTransfer.getData("application/x-zinaplus");
     if (!raw) return;
     const payload = JSON.parse(raw);
     if (payload.type === "attr-type" && payload.attrType) {
@@ -3321,7 +3321,7 @@ export default function StudioPage() {
         <div style={S.leftInner}>
           {/* Logo */}
           <div style={S.logo}>
-            <img src="/xina-logo.svg" alt="Xina" style={{ height: 26, width: "auto" }} />
+            <img src="/zinaplus-logo.svg" alt="Zinaplus" style={{ height: 26, width: "auto" }} />
             <Tooltip>
               <TooltipTrigger
                 onClick={() => setModal({ kind: "leftPanelDetails" })}

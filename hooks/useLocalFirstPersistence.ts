@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 
-const STORAGE_KEY = 'xina-erd-diagram'
+const STORAGE_KEY = 'zinaplus-erd-diagram'
 const STORAGE_VERSION = 1
 
 interface StoredDiagram {

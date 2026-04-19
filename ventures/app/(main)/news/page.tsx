@@ -19,7 +19,7 @@ type Post = {
 
 const posts: Post[] = [
   {
-    title: "Xina Ventures Closes Fund IV at $850M to Back Developer Tools and AI Infrastructure",
+    title: "Zinaplus Ventures Closes Fund IV at $850M to Back Developer Tools and AI Infrastructure",
     date: "April 2, 2026",
     category: "Announcement",
     excerpt: "We're excited to announce the close of our fourth and largest fund, bringing total AUM to $2.4B. Fund IV will double down on our core thesis — developer tools, AI infrastructure, cloud databases, and fintech — with check sizes from $5M to $100M. With this fund, we're expanding our growth-stage capabilities to support portfolio companies through IPO.",
@@ -130,7 +130,7 @@ export default function NewsPage() {
             News &amp; <span className="text-purple-400">Insights</span>
           </motion.h1>
           <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-4 max-w-xl text-base leading-relaxed text-zinc-400 md:text-lg">
-            Fund announcements, investment memos, portfolio deep dives, and perspectives from the Xina team on developer tools, AI, and the future of software infrastructure.
+            Fund announcements, investment memos, portfolio deep dives, and perspectives from the Zinaplus team on developer tools, AI, and the future of software infrastructure.
           </motion.p>
         </motion.div>
       </section>

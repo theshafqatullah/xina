@@ -8,10 +8,10 @@ import Link from "next/link";
 const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
 
 const contacts = [
-  { icon: Briefcase, title: "Founders & Pitch Decks", description: "Building something bold in developer tools, AI, cloud infrastructure, or fintech? We review every pitch deck we receive — no warm intro required. Include a brief description of your company, team background, and current traction. If your pitch is within our thesis, a partner will follow up directly.", email: "founders@xinaventures.com" },
-  { icon: Users, title: "Limited Partners", description: "Interested in learning more about our funds, track record, and performance? Our Fund IV ($850M) closed in Q1 2026. We welcome institutional investors, family offices, and endowments to our LP base. Reach out for our latest fund materials and performance data.", email: "ir@xinaventures.com" },
-  { icon: Newspaper, title: "Press & Media", description: "For press inquiries, speaker requests, thought leadership, and media partnerships. Our team regularly contributes to discussions on developer tools, venture capital, and the future of AI infrastructure.", email: "press@xinaventures.com" },
-  { icon: MessageCircle, title: "Careers at Xina", description: "We're always looking for exceptional people who are passionate about technology and building. Open roles span investing, platform, operations, and marketing. Even if there's no listed role, we encourage you to reach out — we've hired many team members from inbound interest.", email: "careers@xinaventures.com" },
+  { icon: Briefcase, title: "Founders & Pitch Decks", description: "Building something bold in developer tools, AI, cloud infrastructure, or fintech? We review every pitch deck we receive — no warm intro required. Include a brief description of your company, team background, and current traction. If your pitch is within our thesis, a partner will follow up directly.", email: "founders@zinaplusventures.com" },
+  { icon: Users, title: "Limited Partners", description: "Interested in learning more about our funds, track record, and performance? Our Fund IV ($850M) closed in Q1 2026. We welcome institutional investors, family offices, and endowments to our LP base. Reach out for our latest fund materials and performance data.", email: "ir@zinaplusventures.com" },
+  { icon: Newspaper, title: "Press & Media", description: "For press inquiries, speaker requests, thought leadership, and media partnerships. Our team regularly contributes to discussions on developer tools, venture capital, and the future of AI infrastructure.", email: "press@zinaplusventures.com" },
+  { icon: MessageCircle, title: "Careers at Zinaplus", description: "We're always looking for exceptional people who are passionate about technology and building. Open roles span investing, platform, operations, and marketing. Even if there's no listed role, we encourage you to reach out — we've hired many team members from inbound interest.", email: "careers@zinaplusventures.com" },
 ];
 
 const offices = [
@@ -21,7 +21,7 @@ const offices = [
 ];
 
 const faqs = [
-  { q: "Do I need a warm intro to pitch Xina?", a: "No. We believe the best founders can come from anywhere. We review every pitch that hits our inbox and our partners respond directly to companies within our thesis. Over 30% of our investments originated from cold inbound." },
+  { q: "Do I need a warm intro to pitch Zinaplus?", a: "No. We believe the best founders can come from anywhere. We review every pitch that hits our inbox and our partners respond directly to companies within our thesis. Over 30% of our investments originated from cold inbound." },
   { q: "What stage do you invest at?", a: "We invest across pre-seed through growth, with check sizes from $250K to $100M+. However, the majority of our new investments are made at Seed and Series A, where we typically lead or co-lead rounds." },
   { q: "What sectors are you focused on?", a: "Developer tools, AI infrastructure, cloud & data infrastructure, fintech, and climate tech. We look for companies building foundational technology that millions of developers or businesses will rely on." },
   { q: "How quickly do you respond to pitches?", a: "Within 48 hours for companies within our thesis areas. For out-of-scope pitches, we try to respond within 2 weeks. If we pass, we'll tell you why — and we often revisit companies at later stages." },
@@ -130,7 +130,7 @@ export default function ContactPage() {
               <div>
                 <h3 className="font-semibold text-white">Response Commitment</h3>
                 <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-                  We respond to all founder inquiries within 48 hours for companies within our thesis. For out-of-scope pitches, we respond within 2 weeks with honest feedback. If we pass, we&apos;ll tell you why. General inquiries: <span className="text-purple-400">hello@xinaventures.com</span>
+                  We respond to all founder inquiries within 48 hours for companies within our thesis. For out-of-scope pitches, we respond within 2 weeks with honest feedback. If we pass, we&apos;ll tell you why. General inquiries: <span className="text-purple-400">hello@zinaplusventures.com</span>
                 </p>
               </div>
             </div>
@@ -184,7 +184,7 @@ export default function ContactPage() {
             </p>
             <div className="mt-8 flex items-center justify-center gap-4">
               <a
-                href="mailto:founders@xinaventures.com"
+                href="mailto:founders@zinaplusventures.com"
                 className="inline-flex items-center justify-center gap-2 bg-purple-600 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-purple-700"
               >
                 Email Us Your Deck <ArrowRight size={15} />

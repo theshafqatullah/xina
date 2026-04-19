@@ -28,7 +28,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Firm",
     children: [
       { href: "/thesis", title: "Thesis", desc: "Our investment philosophy, focus areas, and stage strategy", icon: Compass },
-      { href: "/team", title: "Team", desc: "Meet the partners and team behind Xina Ventures", icon: Users },
+      { href: "/team", title: "Team", desc: "Meet the partners and team behind Zinaplus Ventures", icon: Users },
     ],
   },
   {
@@ -179,7 +179,7 @@ function Navbar() {
     <header className="relative sticky top-0 z-50 w-full border-b border-white/[0.08] bg-[#09090b]">
       <nav className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-5">
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/xina-logo.svg" alt="Xina Ventures" width={100} height={24} className="h-6 w-auto" />
+          <Image src="/zinaplus-logo.svg" alt="Zinaplus Ventures" width={100} height={24} className="h-6 w-auto" />
         </Link>
 
         <div className="hidden items-center gap-0.5 md:flex">
@@ -276,7 +276,7 @@ function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-4">
           <div className="sm:col-span-2 md:col-span-1">
             <Link href="/">
-              <Image src="/xina-logo.svg" alt="Xina Ventures" width={100} height={24} className="h-6 w-auto" />
+              <Image src="/zinaplus-logo.svg" alt="Zinaplus Ventures" width={100} height={24} className="h-6 w-auto" />
             </Link>
             <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-zinc-500">
               Backing bold founders building the future. Early &amp; growth stage venture capital.
@@ -310,7 +310,7 @@ function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/[0.04] pt-7 sm:flex-row">
-          <p className="text-xs text-zinc-600">&copy; {new Date().getFullYear()} Xina Ventures. All rights reserved.</p>
+          <p className="text-xs text-zinc-600">&copy; {new Date().getFullYear()} Zinaplus Ventures. All rights reserved.</p>
           <p className="text-xs text-zinc-600">Built with <span className="text-purple-500">&hearts;</span> for ambitious founders</p>
         </div>
       </div>

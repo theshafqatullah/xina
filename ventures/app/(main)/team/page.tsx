@@ -119,7 +119,7 @@ export default function TeamPage() {
           </motion.div>
           <motion.h1 variants={fadeUp} transition={{ duration: 0.5 }} className="max-w-2xl text-3xl font-extrabold tracking-tight text-white md:text-5xl">
             The people behind{" "}
-            <span className="text-purple-400">Xina</span>
+            <span className="text-purple-400">Zinaplus</span>
           </motion.h1>
           <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-4 max-w-2xl text-base leading-relaxed text-zinc-400 md:text-lg">
             Former CTOs, founding engineers, repeat founders, and research scientists — united by a shared mission to back the most ambitious technical founders in the world. Our team has collectively built companies worth $100B+.
@@ -250,7 +250,7 @@ export default function TeamPage() {
         <div className="relative mx-auto max-w-4xl px-6 py-28 text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
             <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-              Join the Xina team
+              Join the Zinaplus team
             </h2>
             <p className="mt-4 mx-auto max-w-lg text-[14px] text-zinc-500">
               We&apos;re always looking for exceptional people who are passionate about technology and want to work at the intersection of investing and building. No open roles required — reach out anytime.

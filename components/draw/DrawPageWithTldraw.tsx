@@ -7,7 +7,7 @@ import { ERDToolbar } from './ERDToolbar'
 export function DrawPageWithTldraw() {
   return (
     <div className="w-full h-screen">
-      <Tldraw persistenceKey="xina-erd-diagram">
+      <Tldraw persistenceKey="zinaplus-erd-diagram">
         <ERDToolbar />
       </Tldraw>
     </div>
