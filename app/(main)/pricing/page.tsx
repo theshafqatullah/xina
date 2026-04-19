@@ -107,7 +107,7 @@ const FAQ = [
   { q: "What payment methods do you accept?", a: "Pro plans accept all major credit cards via Stripe. Enterprise billing is flexible \u2014 contact us for invoicing." },
   { q: "Can I cancel my Pro plan anytime?", a: "Absolutely. You can downgrade to Free at any time and keep access until the end of your billing period." },
   { q: "Do you offer discounts for startups or OSS?", a: "Yes \u2014 reach out to our team for special pricing for open-source projects, non-profits, and early-stage startups." },
-  { q: "Is my data secure?", a: "Xina never stores your database content. Your credentials stay in your browser and are used only to communicate with your own database instances directly." },
+  { q: "Is my data secure?", a: "Zinaplus never stores your database content. Your credentials stay in your browser and are used only to communicate with your own database instances directly." },
 ];
 
 const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
@@ -115,9 +115,9 @@ const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-white/[0.06] last:border-0">
+    <div className="border-b border-zinc-200 last:border-0">
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-4 px-1 py-5 text-left">
-        <span className="text-[14px] font-medium text-zinc-200">{q}</span>
+        <span className="text-[14px] font-medium text-zinc-800">{q}</span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
           <ChevronDown size={16} className="shrink-0 text-zinc-500" />
         </motion.span>
@@ -130,8 +130,8 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 function CellValue({ value }: { value: boolean | string }) {
-  if (typeof value === "string") return <span className="text-[12px] font-medium text-zinc-300">{value}</span>;
-  return value ? <Check size={15} className="text-purple-400" /> : <X size={13} className="text-zinc-700/50" />;
+  if (typeof value === "string") return <span className="text-[12px] font-medium text-zinc-700">{value}</span>;
+  return value ? <Check size={15} className="text-emerald-600" /> : <X size={13} className="text-zinc-300/50" />;
 }
 
 export default function PricingPage() {
@@ -139,21 +139,21 @@ export default function PricingPage() {
     <div className="relative overflow-hidden">
       {/* Animated background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(0,0,0,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.08) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
       </div>
 
       {/* Header */}
       <section className="relative mx-auto max-w-6xl px-6 pb-16 pt-28 text-center md:pt-36">
         <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.08 } } }} className="flex flex-col items-center">
-          <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="mb-5 inline-flex items-center gap-2 border border-purple-500/20 bg-purple-500/[0.06] px-4 py-1.5 text-xs font-medium text-purple-400">
+          <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="mb-5 inline-flex items-center gap-2 border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-1.5 text-xs font-medium text-emerald-600">
             <Sparkles size={12} /> Pricing
           </motion.div>
-          <motion.h1 variants={fadeUp} transition={{ duration: 0.5 }} className="max-w-3xl text-3xl font-extrabold tracking-tight text-white md:text-5xl">
+          <motion.h1 variants={fadeUp} transition={{ duration: 0.5 }} className="max-w-3xl text-3xl font-extrabold tracking-tight text-zinc-900 md:text-5xl">
             Simple,{" "}
-            <span className="text-purple-400">transparent</span>{" "}
+            <span className="text-emerald-600">transparent</span>{" "}
             pricing
           </motion.h1>
-          <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-4 max-w-lg text-base text-zinc-400 md:text-lg">Start free with full AI-powered ERD and drag & drop capabilities for 10+ database engines. Upgrade when you need team collaboration.</motion.p>
+          <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-4 max-w-lg text-base text-zinc-600 md:text-lg">Start free with full AI-powered ERD and drag & drop capabilities for 10+ database engines. Upgrade when you need team collaboration.</motion.p>
         </motion.div>
       </section>
 
@@ -161,25 +161,25 @@ export default function PricingPage() {
       <section className="relative mx-auto max-w-5xl px-6 pb-28">
         <div className="grid gap-6 md:grid-cols-3">
           {PLANS.map((plan, i) => (
-            <motion.div key={plan.name} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 + i * 0.08 }} className={`relative flex flex-col overflow-hidden rounded-2xl border p-7 transition-all ${plan.highlight ? "border-purple-500/30 bg-purple-500/[0.06]" : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1]"}`}>
+            <motion.div key={plan.name} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 + i * 0.08 }} className={`relative flex flex-col overflow-hidden rounded-2xl border p-7 transition-all ${plan.highlight ? "border-emerald-500/30 bg-emerald-500/[0.06]" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`}>
               <div className="relative">
-                <h3 className="text-lg font-bold text-white">{plan.name}</h3>
+                <h3 className="text-lg font-bold text-zinc-900">{plan.name}</h3>
                 {plan.highlight && (
-                  <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-purple-600 px-3 py-1 text-[10px] font-semibold text-white">Popular</span>
+                  <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-emerald-600 px-3 py-1 text-[10px] font-semibold text-white">Popular</span>
                 )}
                 <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold tracking-tight text-white">{plan.price}</span>
+                  <span className="text-4xl font-extrabold tracking-tight text-zinc-900">{plan.price}</span>
                   {plan.period && <span className="text-sm text-zinc-500">{plan.period}</span>}
                 </div>
-                <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">{plan.desc}</p>
-                <Link href={plan.ctaHref} className={`mt-6 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-all ${plan.highlight ? "bg-purple-600 text-white hover:bg-purple-700" : "border border-white/[0.1] text-white hover:bg-white/[0.06]"}`}>
+                <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">{plan.desc}</p>
+                <Link href={plan.ctaHref} className={`mt-6 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-all ${plan.highlight ? "bg-emerald-600 text-white hover:bg-emerald-700" : "border border-zinc-300 text-white hover:bg-zinc-100"}`}>
                   {plan.cta}
                 </Link>
               </div>
-              <ul className="mt-7 flex-1 space-y-3 border-t border-white/[0.06] pt-7">
+              <ul className="mt-7 flex-1 space-y-3 border-t border-zinc-200 pt-7">
                 {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-3 text-[13px] text-zinc-400">
-                    <Check size={14} className="mt-0.5 shrink-0 text-purple-400" />
+                  <li key={f} className="flex items-start gap-3 text-[13px] text-zinc-600">
+                    <Check size={14} className="mt-0.5 shrink-0 text-emerald-600" />
                     {f}
                   </li>
                 ))}
@@ -192,16 +192,16 @@ export default function PricingPage() {
       {/* Included in every plan */}
       <section className="relative mx-auto max-w-6xl px-6 pb-32">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }} className="mb-14 text-center">
-          <span className="mb-3 inline-block text-[10px] font-semibold uppercase tracking-wider text-purple-400">Always Free</span>
-          <h2 className="text-2xl font-bold text-white md:text-4xl">Included in every plan</h2>
+          <span className="mb-3 inline-block text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Always Free</span>
+          <h2 className="text-2xl font-bold text-zinc-900 md:text-4xl">Included in every plan</h2>
           <p className="mt-3 text-sm text-zinc-500">Core ERD features are free — no credit card required.</p>
         </motion.div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {BENEFITS.map((b, i) => (
-            <motion.div key={b.label} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }} transition={{ duration: 0.35, delay: i * 0.05 }} className="group flex items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 transition-all hover:border-white/[0.1]">
-              <span className="shrink-0 text-purple-400"><b.icon size={20} /></span>
+            <motion.div key={b.label} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }} transition={{ duration: 0.35, delay: i * 0.05 }} className="group flex items-center gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-5 transition-all hover:border-zinc-300">
+              <span className="shrink-0 text-emerald-600"><b.icon size={20} /></span>
               <div>
-                <span className="text-[13px] font-semibold text-zinc-200">{b.label}</span>
+                <span className="text-[13px] font-semibold text-zinc-800">{b.label}</span>
                 <p className="text-[11px] text-zinc-500">{b.desc}</p>
               </div>
             </motion.div>
@@ -212,17 +212,17 @@ export default function PricingPage() {
       {/* ─── Feature comparison table ─── */}
       <section className="relative mx-auto max-w-4xl px-6 pb-32">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-10 text-center">
-          <span className="mb-3 inline-block text-[10px] font-semibold uppercase tracking-wider text-purple-400">Comparison</span>
-          <h2 className="text-2xl font-bold tracking-tight text-white md:text-4xl">Compare plans</h2>
+          <span className="mb-3 inline-block text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Comparison</span>
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 md:text-4xl">Compare plans</h2>
           <p className="mt-3 text-sm text-zinc-500">See exactly which features are available on each tier.</p>
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-          <div className="grid grid-cols-[1fr_72px_72px_90px] border-b border-white/[0.06] bg-white/[0.02] px-6 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-            <span>Feature</span><span className="text-center">Free</span><span className="text-center text-purple-400">Pro</span><span className="text-center">Enterprise</span>
+        <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
+          <div className="grid grid-cols-[1fr_72px_72px_90px] border-b border-zinc-200 bg-zinc-50 px-6 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <span>Feature</span><span className="text-center">Free</span><span className="text-center text-emerald-600">Pro</span><span className="text-center">Enterprise</span>
           </div>
           {COMPARE_FEATURES.map((r, i) => (
-            <div key={r.name} className={`grid grid-cols-[1fr_72px_72px_90px] items-center px-6 py-3.5 transition-colors hover:bg-white/[0.02] ${i > 0 ? "border-t border-white/[0.04]" : ""}`}>
-              <span className="text-[13px] text-zinc-400">{r.name}</span>
+            <div key={r.name} className={`grid grid-cols-[1fr_72px_72px_90px] items-center px-6 py-3.5 transition-colors hover:bg-zinc-50 ${i > 0 ? "border-t border-zinc-200" : ""}`}>
+              <span className="text-[13px] text-zinc-600">{r.name}</span>
               <span className="flex justify-center"><CellValue value={r.free} /></span>
               <span className="flex justify-center"><CellValue value={r.pro} /></span>
               <span className="flex justify-center"><CellValue value={r.enterprise} /></span>
@@ -237,12 +237,12 @@ export default function PricingPage() {
           {[
             { icon: CreditCard, title: "No credit card needed", desc: "Start free instantly — no payment info required.", accent: "from-emerald-500 to-teal-500" },
             { icon: Zap, title: "Cancel anytime", desc: "Downgrade to Free at any time, no questions asked.", accent: "from-amber-500 to-orange-500" },
-            { icon: Shield, title: "Your data stays yours", desc: "We never store database content. API keys remain local.", accent: "from-purple-500 to-violet-500" },
+            { icon: Shield, title: "Your data stays yours", desc: "We never store database content. API keys remain local.", accent: "from-emerald-500 to-emerald-500" },
           ].map((b, i) => (
-            <motion.div key={b.title} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }} transition={{ duration: 0.35, delay: i * 0.06 }} className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-7 text-center transition-all hover:border-white/[0.1]">
+            <motion.div key={b.title} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-30px" }} transition={{ duration: 0.35, delay: i * 0.06 }} className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 p-7 text-center transition-all hover:border-zinc-300">
               <div className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br ${b.accent} opacity-0 blur-[40px] transition-opacity group-hover:opacity-[0.06]`} />
-              <span className="mx-auto mb-4 block text-purple-400"><b.icon size={22} /></span>
-              <h3 className="mb-1.5 text-[14px] font-semibold text-white">{b.title}</h3>
+              <span className="mx-auto mb-4 block text-emerald-600"><b.icon size={22} /></span>
+              <h3 className="mb-1.5 text-[14px] font-semibold text-zinc-900">{b.title}</h3>
               <p className="text-[12px] leading-relaxed text-zinc-500">{b.desc}</p>
             </motion.div>
           ))}
@@ -252,25 +252,25 @@ export default function PricingPage() {
       {/* ─── Pricing FAQ ─── */}
       <section className="relative mx-auto max-w-3xl px-6 pb-32">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.5 }} className="mb-10 text-center">
-          <span className="mb-3 inline-block text-[10px] font-semibold uppercase tracking-wider text-purple-400">FAQ</span>
-          <h2 className="text-2xl font-bold tracking-tight text-white md:text-4xl">Pricing FAQ</h2>
+          <span className="mb-3 inline-block text-[10px] font-semibold uppercase tracking-wider text-emerald-600">FAQ</span>
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 md:text-4xl">Pricing FAQ</h2>
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-6">
+        <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }} className="rounded-2xl border border-zinc-200 bg-zinc-50 px-6">
           {FAQ.map((f) => <FaqItem key={f.q} q={f.q} a={f.a} />)}
         </motion.div>
       </section>
 
       {/* ─── CTA ─── */}
       <section className="relative mx-auto max-w-6xl px-6 pb-28">
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.5 }} className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-white/[0.02] p-10 text-center md:p-16">
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.5 }} className="relative overflow-hidden rounded-3xl border border-zinc-200 bg-zinc-50 p-10 text-center md:p-16">
           <div className="relative">
-            <h2 className="text-2xl font-bold text-white md:text-4xl">Start building for free</h2>
-            <p className="mt-3 text-sm text-zinc-400 md:text-base">No credit card. No time limit. Just open the studio.</p>
+            <h2 className="text-2xl font-bold text-zinc-900 md:text-4xl">Start building for free</h2>
+            <p className="mt-3 text-sm text-zinc-600 md:text-base">No credit card. No time limit. Just open the studio.</p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href="/studio" className="inline-flex items-center justify-center gap-2 bg-purple-600 px-7 py-3.5 text-sm font-semibold text-white hover:bg-purple-700">
+              <Link href="/studio" className="inline-flex items-center justify-center gap-2 bg-emerald-600 px-7 py-3.5 text-sm font-semibold text-white hover:bg-emerald-700">
                 Launch Studio <ArrowRight size={15} />
               </Link>
-              <Link href="/features" className="inline-flex items-center justify-center gap-2 border border-white/[0.1] px-7 py-3.5 text-sm font-semibold text-white hover:bg-white/[0.06]">
+              <Link href="/features" className="inline-flex items-center justify-center gap-2 border border-zinc-300 px-7 py-3.5 text-sm font-semibold text-zinc-900 hover:bg-zinc-100">
                 See All Features
               </Link>
             </div>

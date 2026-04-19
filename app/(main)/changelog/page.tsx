@@ -88,10 +88,10 @@ const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
 
 function TypeBadge({ type }: { type: string }) {
   const styles = type === "feat"
-    ? "text-purple-400"
+    ? "text-emerald-600"
     : type === "fix"
-    ? "text-amber-400"
-    : "text-zinc-400";
+    ? "text-amber-600"
+    : "text-zinc-600";
   return (
     <span className={`font-mono text-[10px] font-semibold uppercase ${styles}`}>
       {type}
@@ -104,23 +104,23 @@ export default function ChangelogPage() {
     <div className="relative overflow-hidden">
       {/* Animated background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        <div className="absolute -top-40 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-purple-600/[0.07] blur-[150px]" />
-        <div className="absolute left-0 top-80 h-[400px] w-[400px] rounded-full bg-violet-600/[0.04] blur-[120px]" />
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(0,0,0,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.08) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+        <div className="absolute -top-40 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-emerald-600/[0.07] blur-[150px]" />
+        <div className="absolute left-0 top-80 h-[400px] w-[400px] rounded-full bg-emerald-600/[0.04] blur-[120px]" />
       </div>
 
       {/* Header */}
       <section className="relative mx-auto max-w-4xl px-6 pb-12 pt-28 text-center md:pt-36">
         <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.08 } } }} className="flex flex-col items-center">
-          <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="mb-5 inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/[0.06] px-4 py-1.5 text-xs font-medium text-purple-400 backdrop-blur-sm">
+          <motion.div variants={fadeUp} transition={{ duration: 0.5 }} className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-1.5 text-xs font-medium text-emerald-600 backdrop-blur-sm">
             <GitCommit size={12} /> Changelog
           </motion.div>
-          <motion.h1 variants={fadeUp} transition={{ duration: 0.5 }} className="max-w-2xl text-3xl font-extrabold tracking-tight text-white md:text-5xl">
+          <motion.h1 variants={fadeUp} transition={{ duration: 0.5 }} className="max-w-2xl text-3xl font-extrabold tracking-tight text-zinc-900 md:text-5xl">
             What&apos;s{" "}
-            <span className="text-purple-400">new</span>{" "}
-            in Xina
+            <span className="text-emerald-600">new</span>{" "}
+            in Zinaplus
           </motion.h1>
-          <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-4 max-w-lg text-base text-zinc-400 md:text-lg">A chronological list of every feature, fix, and improvement — newest first.</motion.p>
+          <motion.p variants={fadeUp} transition={{ duration: 0.5 }} className="mt-4 max-w-lg text-base text-zinc-600 md:text-lg">A chronological list of every feature, fix, and improvement — newest first.</motion.p>
         </motion.div>
       </section>
 
@@ -128,23 +128,23 @@ export default function ChangelogPage() {
       <section className="relative mx-auto max-w-3xl px-6 pb-24">
         <div className="space-y-0">
           {RELEASES.map((release, ri) => (
-            <motion.div key={release.version} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-40px" }} transition={{ duration: 0.4, delay: ri * 0.05 }} className="relative border-l-2 border-white/[0.06] pb-12 pl-8 last:pb-0">
+            <motion.div key={release.version} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-40px" }} transition={{ duration: 0.4, delay: ri * 0.05 }} className="relative border-l-2 border-zinc-200 pb-12 pl-8 last:pb-0">
               {/* Version circle */}
-              <div className="absolute -left-[17px] top-0 flex h-8 w-8 items-center justify-center rounded-full bg-[#09090b]">
-                <Tag size={15} className="text-purple-400" />
+              <div className="absolute -left-[17px] top-0 flex h-8 w-8 items-center justify-center rounded-full bg-white">
+                <Tag size={15} className="text-emerald-600" />
               </div>
 
               <div className="flex items-center gap-3 pt-1">
-                <h3 className="text-lg font-bold text-white">v{release.version}</h3>
+                <h3 className="text-lg font-bold text-zinc-900">v{release.version}</h3>
                 <span className="text-xs text-zinc-500">{release.date}</span>
                 {release.tag && (
-                  <span className="rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white shadow-lg shadow-purple-600/30">{release.tag}</span>
+                  <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-semibold text-white shadow-lg shadow-emerald-600/30">{release.tag}</span>
                 )}
               </div>
 
               <ul className="mt-4 space-y-3">
                 {release.changes.map((c) => (
-                  <li key={c.text} className="flex items-start gap-3 text-[13px] text-zinc-400">
+                  <li key={c.text} className="flex items-start gap-3 text-[13px] text-zinc-600">
                     <TypeBadge type={c.type} />
                     <span className="leading-relaxed">{c.text}</span>
                   </li>
@@ -157,13 +157,13 @@ export default function ChangelogPage() {
 
       {/* Subscribe / CTA */}
       <section className="relative mx-auto max-w-4xl px-6 pb-28">
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.5 }} className="relative overflow-hidden rounded-3xl border border-purple-500/20 bg-gradient-to-br from-purple-600/[0.12] via-violet-600/[0.06] to-transparent p-10 text-center md:p-16">
-          <div className="pointer-events-none absolute -left-20 -top-20 h-60 w-60 rounded-full bg-purple-600/10 blur-[80px]" />
-          <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-violet-600/10 blur-[60px]" />
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.5 }} className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-600/[0.12] via-emerald-600/[0.06] to-transparent p-10 text-center md:p-16">
+          <div className="pointer-events-none absolute -left-20 -top-20 h-60 w-60 rounded-full bg-emerald-600/10 blur-[80px]" />
+          <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-emerald-600/10 blur-[60px]" />
           <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #fff 0.5px, transparent 0.5px)", backgroundSize: "20px 20px" }} />
           <div className="relative">
-            <h2 className="text-2xl font-bold text-white md:text-4xl">Stay up to date</h2>
-            <p className="mt-3 text-sm text-zinc-400 md:text-base">Try the latest features right now in the studio.</p>
+            <h2 className="text-2xl font-bold text-zinc-900 md:text-4xl">Stay up to date</h2>
+            <p className="mt-3 text-sm text-zinc-600 md:text-base">Try the latest features right now in the studio.</p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link href="/studio" className="group inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-[#09090b] shadow-xl transition-all hover:bg-zinc-100">
                 Open Studio <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />

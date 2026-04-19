@@ -1,15 +1,21 @@
 import type { Metadata } from "next";
-import { Geist_Mono, IBM_Plex_Sans, Geist } from "next/font/google";
+import { Geist_Mono, Inter, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
-const ibmPlexSans = IBM_Plex_Sans({
-  variable: "--font-ibm-plex-sans",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -18,8 +24,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Xina — Visual Database Schema Designer for Appwrite",
-  description: "Design, visualize, and manage your Appwrite database schemas with an interactive ERD canvas. Create collections, map relationships, and edit attributes visually.",
+  title: "Zinaplus — The Universal Visual Database Designer",
+  description: "Design, visualize, and ship database schemas across PostgreSQL, MySQL, MongoDB, Appwrite, Firebase, and more — one canvas for every data layer.",
 };
 
 export default function RootLayout({
@@ -28,9 +34,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
+    <html lang="en" className={cn("font-sans", inter.variable, instrumentSerif.variable)}>
       <body
-        className={`${ibmPlexSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistMono.variable} antialiased bg-white text-zinc-900`}
       >
         <TooltipProvider>{children}</TooltipProvider>
       </body>

@@ -188,37 +188,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Remove all border-radius and shadows */
-* {
-  border-radius: 0 !important;
-}
-
-button,
-a,
-div,
-span,
-input,
-select,
-textarea,
-[class*="rounded-"],
-[class*="shadow-"],
-[class*="shadow"],
-.shadow,
-.rounded-lg,
-.rounded-xl,
-.rounded-2xl,
-.rounded-3xl,
-.rounded-full,
-.rounded-md,
-.rounded-sm {
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -249,17 +223,26 @@ textarea,
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xs: 0.125rem;  /* 2px */
+  --radius-sm: 0.25rem;   /* 4px */
+  --radius-md: 0.375rem;  /* 6px */
+  --radius-lg: 0.5rem;    /* 8px */
+  --radius-xl: 0.625rem;  /* 10px */
+  --radius-2xl: 0.875rem; /* 14px */
+  --radius-3xl: 1.25rem;  /* 20px */
+  --radius-4xl: 1.75rem;  /* 28px */
 }
 
 body {
-  font-family: var(--font-ibm-plex-sans), "IBM Plex Sans", "Avenir Next", sans-serif;
+  font-family: var(--font-sans), "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
+.font-serif,
+h1, h2, h3 {
+  font-family: var(--font-serif), "Instrument Serif", ui-serif, Georgia, serif;
+  font-feature-settings: "liga", "dlig";
+  letter-spacing: -0.01em;
 }
 
 .editor-shell {
@@ -486,24 +469,24 @@ body {
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.598 0.145 163.3);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: oklch(0.95 0.03 163.3);
+  --accent-foreground: oklch(0.35 0.09 163.3);
   --destructive: oklch(0.58 0.22 27);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.598 0.145 163.3);
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -551,6 +534,21 @@ body {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  /* No element should render with perfectly square corners. */
+  /* Explicit rounded-* utilities still win (both via :where() 0-specificity and the :not check). */
+  :where(
+    button,
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea,
+    a[class*="bg-"],
+    a[class*="border "],
+    a[class*=" border"],
+    span[class*="bg-"],
+    [class*="border border-"][class*="bg-"]
+  ):not([class*="rounded"]) {
+    border-radius: var(--radius-md);
   }
   body {
     @apply bg-background text-foreground;
